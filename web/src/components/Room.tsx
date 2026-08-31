@@ -1,0 +1,186 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RoomApi } from '../hooks/useRoom';
+import type { SyncState } from '../../../shared/protocol';
+import { shouldSeek } from '../lib/util';
+import { RoomHeader } from './RoomHeader';
+import { VideoStage, type StageRef } from './VideoStage';
+import { Controls } from './Controls';
+import { ChatDrawer } from './ChatDrawer';
+
+export function Room({ room }: { room: RoomApi }) {
+  const { state, events, actions } = room;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const shareVideoRef = useRef<HTMLVideoElement>(null);
+  const stageRef = useRef<StageRef>(null);
+
+  const [shareStream, setShareStream] = useState<MediaStream | null>(null);
+  const [showUnlock, setShowUnlock] = useState(false);
+  const [pickedTitle, setPickedTitle] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const pendingRef = useRef<SyncState | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  /* ---------- 同步播放 ---------- */
+
+  const applyPendingOnce = useCallback(() => {
+    const v = videoRef.current;
+    const p = pendingRef.current;
+    if (!v || !p) return;
+    pendingRef.current = null;
+    try {
+      v.currentTime = p.pos;
+    } catch {
+      /* 元数据未就绪 */
+    }
+    if (p.playing) v.play().catch(() => setShowUnlock(true));
+    else v.pause();
+  }, []);
+
+  const applySync = useCallback(
+    (sync: SyncState) => {
+      const v = videoRef.current;
+      if (!v) return;
+      if (!v.currentSrc) {
+        pendingRef.current = sync;
+        return;
+      }
+      if (shouldSeek(v.currentTime, sync.pos)) v.currentTime = sync.pos;
+      if (sync.playing) v.play().catch(() => setShowUnlock(true));
+      else v.pause();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const offs = [
+      events.on('sync', applySync),
+      events.on('share-stream', (s) => setShareStream(s)),
+      events.on('share-ended', () => setShareStream(null)),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [events, applySync]);
+
+  // 屋主广播：自己的播放变化就是同步源
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay = () => {
+      if (stateRef.current.isHost && stateRef.current.mode === 'sync')
+        actions.send({ t: 'sync', playing: true, pos: v.currentTime });
+    };
+    const onPause = () => {
+      if (stateRef.current.isHost && stateRef.current.mode === 'sync')
+        actions.send({ t: 'sync', playing: false, pos: v.currentTime });
+    };
+    v.addEventListener('play', onPlay);
+    v.addEventListener('pause', onPause);
+    return () => {
+      v.removeEventListener('play', onPlay);
+      v.removeEventListener('pause', onPause);
+    };
+  }, [actions]);
+
+  // 屋主每 5 秒心跳纠偏，追剧两小时也差不出一两秒
+  useEffect(() => {
+    if (!state.isHost || state.mode !== 'sync') return;
+    const t = window.setInterval(() => {
+      const v = videoRef.current;
+      if (v?.currentSrc && !v.paused && !v.ended)
+        actions.send({ t: 'heartbeat', playing: true, pos: v.currentTime });
+    }, 5000);
+    return () => window.clearInterval(t);
+  }, [state.isHost, state.mode, actions]);
+
+  // 任意点击解锁手机自动播放限制
+  useEffect(() => {
+    const arm = () => {
+      const tryPlay = (el: HTMLVideoElement | null) => {
+        if (el && (el.currentSrc || el.srcObject)) {
+          el.play()
+            .then(() => setShowUnlock(false))
+            .catch(() => {});
+        }
+      };
+      tryPlay(videoRef.current);
+      tryPlay(shareVideoRef.current);
+    };
+    document.addEventListener('pointerdown', arm);
+    return () => document.removeEventListener('pointerdown', arm);
+  }, []);
+
+  // 片源变化：直链直接加载；本地文件等各自选
+  useEffect(() => {
+    const v = videoRef.current;
+    const src = state.src;
+    if (!v || !src) return;
+    if (src.kind === 'url' && src.url && v.src !== src.url) {
+      v.src = src.url;
+      v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+    }
+  }, [state.src, applyPendingOnce]);
+
+  /* ---------- 片源/共享 ---------- */
+
+  const onHostLocalFile = (file: File) => {
+    const v = videoRef.current;
+    if (!v) return;
+    actions.setSourceLocal(file);
+    v.src = URL.createObjectURL(file);
+    setPickedTitle(file.name);
+  };
+
+  const onFollowerLocalFile = (file: File) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.src = URL.createObjectURL(file);
+    v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+    setPickedTitle(file.name);
+  };
+
+  const onTogglePlay = () => {
+    const v = videoRef.current;
+    if (!v?.currentSrc) return;
+    if (v.paused) v.play().catch(() => setShowUnlock(true));
+    else v.pause();
+  };
+
+  const onUnlock = () => {
+    const tryPlay = (el: HTMLVideoElement | null) =>
+      el?.play()
+        .then(() => setShowUnlock(false))
+        .catch(() => {});
+    tryPlay(videoRef.current);
+    tryPlay(shareVideoRef.current);
+  };
+
+  return (
+    <div id="roomView" className="screen">
+      <RoomHeader state={state} />
+      <VideoStage
+        ref={stageRef}
+        videoRef={videoRef}
+        shareVideoRef={shareVideoRef}
+        shareStream={shareStream}
+        showUnlock={showUnlock}
+        onUnlock={onUnlock}
+        src={state.src}
+        isHost={state.isHost}
+        mode={state.mode}
+        shareActive={state.shareActive}
+        pickedTitle={pickedTitle}
+        onPickLocal={onFollowerLocalFile}
+      />      <Controls
+        stageRef={stageRef}
+        videoRef={videoRef}
+        state={state}
+        actions={actions}
+        onHostLocalFile={onHostLocalFile}
+        onTogglePlay={onTogglePlay}
+        onToggleChat={() => setChatOpen((v) => !v)}
+      />
+      <ChatDrawer open={chatOpen} chat={state.chat} onSend={actions.chat} onClose={() => setChatOpen(false)} />
+    </div>
+  );
+}
