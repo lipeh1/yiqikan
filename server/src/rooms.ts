@@ -6,6 +6,7 @@ export interface Conn {
   cid: number;
   name: string;
   room: Room | null;
+  voice: boolean; // 是否在麦上
 }
 
 export interface Room {
@@ -20,7 +21,7 @@ export interface Room {
 }
 
 export function newConn(ws: WsSocket): Conn {
-  return { ws, cid: 0, name: '', room: null };
+  return { ws, cid: 0, name: '', room: null, voice: false };
 }
 
 export function send(conn: Conn, msg: ServerMsg): void {
@@ -34,8 +35,8 @@ export function broadcast(room: Room, msg: ServerMsg, except?: Conn): void {
 }
 
 export function membersOf(room: Room): Member[] {
-  const m: Member[] = [{ cid: room.host.cid, name: room.host.name, host: true }];
-  for (const c of room.clients) m.push({ cid: c.cid, name: c.name, host: false });
+  const m: Member[] = [{ cid: room.host.cid, name: room.host.name, host: true, voice: room.host.voice }];
+  for (const c of room.clients) m.push({ cid: c.cid, name: c.name, host: false, voice: c.voice });
   return m;
 }
 
@@ -158,6 +159,31 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
     }
     case 'poke': {
       broadcast(room, { t: 'poke', from: conn.name }, conn);
+      return;
+    }
+    case 'voice': {
+      conn.voice = !!m.on;
+      broadcast(room, { t: 'voice', cid: conn.cid, on: conn.voice });
+      return;
+    }
+    case 'v-offer': {
+      // 连麦 offer 只有屋主能发，定向给指定成员
+      if (conn !== room.host) return;
+      const target = findByCid(room, m.to);
+      if (target) send(target, { t: 'v-offer', from: conn.cid, sdp: m.sdp });
+      return;
+    }
+    case 'v-answer': {
+      send(room.host, { t: 'v-answer', from: conn.cid, sdp: m.sdp });
+      return;
+    }
+    case 'v-ice': {
+      if (m.to === 'host') {
+        send(room.host, { t: 'v-ice', from: conn.cid, candidate: m.candidate });
+      } else if (conn === room.host) {
+        const target = findByCid(room, m.to);
+        if (target) send(target, { t: 'v-ice', from: conn.cid, candidate: m.candidate });
+      }
       return;
     }
     case 'rtc-offer': {

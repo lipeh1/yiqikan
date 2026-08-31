@@ -16,16 +16,17 @@ const guard = setTimeout(() => fail('测试超时'), 8000);
 type StepFn = (m: ServerMsg) => void;
 
 class Client {
-  private steps = new Map<string, StepFn>();
+  private steps: Array<{ type: ServerMsg['t']; match?: (m: ServerMsg) => boolean; fn: StepFn }> = [];
   constructor(
     public ws: WebSocket,
     private label: string,
   ) {
     ws.on('message', (d) => {
       const m = JSON.parse(String(d)) as ServerMsg;
-      const fn = this.steps.get(m.t) as ((m: ServerMsg) => void) | undefined;
-      if (!fn) return;
-      this.steps.delete(m.t);
+      const i = this.steps.findIndex((s) => s.type === m.t && (!s.match || s.match(m)));
+      if (i < 0) return;
+      const { fn } = this.steps[i];
+      this.steps.splice(i, 1);
       fn(m);
     });
     ws.on('error', (e) => fail(`${this.label} 连接失败: ${e.message}`));
@@ -36,8 +37,9 @@ class Client {
   waitFor<T extends ServerMsg['t']>(
     type: T,
     fn: (m: Extract<ServerMsg, { t: T }>) => void,
+    match?: (m: ServerMsg) => boolean,
   ): void {
-    this.steps.set(type, fn as StepFn);
+    this.steps.push({ type, fn: fn as StepFn, match });
   }
 }
 
@@ -155,5 +157,53 @@ host.waitFor('chat', (m) => {
 host.waitFor('poke', (m) => {
   assert.equal(m.from, '宝宝');
   console.log('OK 戳一戳到达屋主');
+  // —— 连麦语音 ——
+  guest.send({ t: 'voice', on: true });
+});
+
+host.waitFor(
+  'voice',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, true);
+    console.log('OK 观众开麦状态到达屋主');
+    host.send({ t: 'voice', on: true });
+  },
+  (m) => m.t === 'voice' && m.cid === guestCid,
+);
+
+guest.waitFor(
+  'voice',
+  (m) => {
+    assert.equal(m.cid, hostCid);
+    assert.equal(m.on, true);
+    console.log('OK 屋主开麦状态到达观众');
+    host.send({ t: 'v-offer', to: guestCid, sdp: 'fake-voice-offer' });
+  },
+  (m) => m.t === 'voice' && m.cid === hostCid,
+);
+
+guest.waitFor('v-offer', (m) => {
+  assert.equal(m.from, hostCid);
+  assert.equal(m.sdp, 'fake-voice-offer');
+  console.log('OK 连麦 offer 定向送达观众');
+  guest.send({ t: 'v-answer', sdp: 'fake-voice-answer' });
+});
+
+host.waitFor('v-answer', (m) => {
+  assert.equal(m.from, guestCid);
+  console.log('OK 连麦 answer 路由回屋主');
+  guest.send({ t: 'v-ice', to: 'host', candidate: { candidate: 'voice-ice-1' } });
+});
+
+host.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'voice-ice-1');
+  console.log('OK 观众连麦 ICE 到达屋主');
+  host.send({ t: 'v-ice', to: guestCid, candidate: { candidate: 'voice-ice-2' } });
+});
+
+guest.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'voice-ice-2');
+  console.log('OK 屋主连麦 ICE 定向送达观众');
   host.send({ t: 'share-stop' });
 });

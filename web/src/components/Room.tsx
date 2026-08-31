@@ -11,6 +11,7 @@ export function Room({ room }: { room: RoomApi }) {
   const { state, events, actions } = room;
   const videoRef = useRef<HTMLVideoElement>(null);
   const shareVideoRef = useRef<HTMLVideoElement>(null);
+  const voiceAudioRef = useRef<HTMLAudioElement>(null);
   const stageRef = useRef<StageRef>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
@@ -58,6 +59,12 @@ export function Room({ room }: { room: RoomApi }) {
       events.on('sync', applySync),
       events.on('share-stream', (s) => setShareStream(s)),
       events.on('share-ended', () => setShareStream(null)),
+      events.on('voice-stream', (s) => {
+        const a = voiceAudioRef.current;
+        if (!a) return;
+        a.srcObject = s;
+        a.play().catch(() => setShowUnlock(true));
+      }),
     ];
     return () => offs.forEach((off) => off());
   }, [events, applySync]);
@@ -105,6 +112,7 @@ export function Room({ room }: { room: RoomApi }) {
       };
       tryPlay(videoRef.current);
       tryPlay(shareVideoRef.current);
+      void voiceAudioRef.current?.play().catch(() => {});
     };
     document.addEventListener('pointerdown', arm);
     return () => document.removeEventListener('pointerdown', arm);
@@ -158,6 +166,8 @@ export function Room({ room }: { room: RoomApi }) {
   return (
     <div id="roomView" className="screen">
       <RoomHeader state={state} />
+      {/* 连麦对方的远端声音（隐藏元素，只出声） */}
+      <audio ref={voiceAudioRef} autoPlay />
       <VideoStage
         ref={stageRef}
         videoRef={videoRef}

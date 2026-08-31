@@ -8,7 +8,7 @@ import type {
   SyncState,
 } from '../../../shared/protocol';
 import { Emitter } from '../lib/emitter';
-import { HostSharer, ViewerShare } from '../lib/webrtc';
+import { HostSharer, ViewerShare, VoiceLink } from '../lib/webrtc';
 
 export interface ChatItem {
   from: string;
@@ -32,12 +32,14 @@ export interface RoomState {
   sharing: boolean; // 本端（屋主）正在推流
   shareActive: boolean; // 房间处于共享模式（观众据此切换画面）
   hasRemoteStream: boolean; // 观众已收到画面流
+  voiceOn: boolean; // 本端在麦上
 }
 
 export interface RoomEvents {
   sync: SyncState;
   'share-stream': MediaStream;
   'share-ended': void;
+  'voice-stream': MediaStream;
 }
 
 const INITIAL: RoomState = {
@@ -56,6 +58,7 @@ const INITIAL: RoomState = {
   sharing: false,
   shareActive: false,
   hasRemoteStream: false,
+  voiceOn: false,
 };
 
 export function useRoom() {
@@ -66,6 +69,8 @@ export function useRoom() {
   const wsRef = useRef<WebSocket | null>(null);
   const sharerRef = useRef<HostSharer | null>(null);
   const viewerRef = useRef<ViewerShare | null>(null);
+  const voicePcRef = useRef<VoiceLink | null>(null);
+  const localVoiceRef = useRef<MediaStream | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const eventsRef = useRef(new Emitter<RoomEvents>());
   const events = eventsRef.current;
@@ -96,6 +101,28 @@ export function useRoom() {
       set({ sharing: false });
     },
     [send, set],
+  );
+
+  const hangupVoice = useCallback(() => {
+    voicePcRef.current?.close();
+    voicePcRef.current = null;
+  }, []);
+
+  /** 双方都在麦上时，屋主负责发起音频连接 */
+  const maybeStartVoice = useCallback(
+    (forceHost?: boolean) => {
+      const s = stateRef.current;
+      const isHost = forceHost ?? s.isHost;
+      if (!isHost || !s.voiceOn || !localVoiceRef.current) return;
+      const peer = s.members.find((m) => !m.host);
+      if (!peer?.voice || voicePcRef.current) return;
+      const link = new VoiceLink(localVoiceRef.current, send, peer.cid, (stream) =>
+        events.emit('voice-stream', stream),
+      );
+      voicePcRef.current = link;
+      void link.call(peer.cid);
+    },
+    [events, send],
   );
 
   const startShare = useCallback(async () => {
@@ -155,8 +182,11 @@ export function useRoom() {
         case 'host':
           viewerRef.current?.close();
           viewerRef.current = null;
+          hangupVoice();
           set({ isHost: true, hasRemoteStream: false, sharing: false });
           toast('你成了新屋主');
+          // 若双方麦克风都还开着，以新屋主身份重建连麦
+          maybeStartVoice(true);
           break;
         case 'member': {
           set({ members: m.members });
@@ -166,6 +196,7 @@ export function useRoom() {
             if (s.sharing && sharerRef.current && m.cid) void sharerRef.current.addViewer(m.cid);
           } else if (m.action === 'leave') {
             toast(`${m.name} 走开了`);
+            hangupVoice();
           }
           break;
         }
@@ -195,6 +226,37 @@ export function useRoom() {
           toast(`${m.from} 戳了戳你`);
           set({ chat: [...s.chat.slice(-199), { from: '戳一戳', text: '戳了戳你，快看片！', mine: false }] });
           break;
+        case 'voice': {
+          // 更新成员在麦状态；自己的回显只刷新数据不弹提示
+          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, voice: m.on } : x));
+          set({ members });
+          if (m.cid === s.myCid) break;
+          const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
+          if (m.on) {
+            toast(`${who} 开了连麦${s.voiceOn ? '' : '，点 🎤 加入'}`);
+            maybeStartVoice();
+          } else {
+            hangupVoice();
+            toast(`${who} 挂断了连麦`);
+          }
+          break;
+        }
+        case 'v-offer': {
+          // 观众：收到屋主的连麦邀约
+          voicePcRef.current?.close();
+          const link = new VoiceLink(localVoiceRef.current, send, 'host', (stream) =>
+            events.emit('voice-stream', stream),
+          );
+          voicePcRef.current = link;
+          void link.answer(m.sdp);
+          break;
+        }
+        case 'v-answer':
+          voicePcRef.current?.handleAnswer(m.sdp);
+          break;
+        case 'v-ice':
+          voicePcRef.current?.handleIce(m.candidate);
+          break;
         case 'notice':
           toast(m.msg);
           break;
@@ -222,7 +284,7 @@ export function useRoom() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [events, send, set, toast],
+    [events, hangupVoice, maybeStartVoice, send, set, toast],
   );
 
   const connect = useCallback(
@@ -291,10 +353,34 @@ export function useRoom() {
     toast('戳了戳对方');
   }, [send, toast]);
 
+  const toggleVoice = useCallback(async () => {
+    if (stateRef.current.voiceOn) {
+      // 挂断：关麦、断连接、广播状态
+      localVoiceRef.current?.getTracks().forEach((t) => t.stop());
+      localVoiceRef.current = null;
+      hangupVoice();
+      send({ t: 'voice', on: false });
+      set({ voiceOn: false });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      localVoiceRef.current = stream;
+      send({ t: 'voice', on: true });
+      set({ voiceOn: true });
+      toast('连麦已开，建议戴耳机防啸叫');
+      maybeStartVoice();
+    } catch {
+      toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
+    }
+  }, [hangupVoice, maybeStartVoice, send, set, toast]);
+
   useEffect(() => {
     return () => {
       sharerRef.current?.stop();
       viewerRef.current?.close();
+      voicePcRef.current?.close();
+      localVoiceRef.current?.getTracks().forEach((t) => t.stop());
       wsRef.current?.close();
     };
   }, []);
@@ -309,6 +395,7 @@ export function useRoom() {
       setSourceLocal,
       startShare,
       stopShare,
+      toggleVoice,
       chat,
       poke,
       send,

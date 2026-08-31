@@ -7,6 +7,7 @@ export interface Member {
   cid: number; // 房间内连接 id，WebRTC 信令按它定向投递
   name: string;
   host: boolean;
+  voice: boolean; // 是否在麦上（连麦语音）
 }
 
 export interface SourceState {
@@ -39,6 +40,11 @@ export type ClientMsg =
   // 社交
   | { t: 'chat'; text: string }
   | { t: 'poke' }
+  // 连麦语音（双方都开麦后由屋主发起，独立于屏幕共享的 PeerConnection）
+  | { t: 'voice'; on: boolean }
+  | { t: 'v-offer'; to: number; sdp: string }
+  | { t: 'v-answer'; sdp: string }
+  | { t: 'v-ice'; to: number | 'host'; candidate: IceLike }
   // WebRTC 信令（share 模式）。观众→屋主固定 to:'host'
   | { t: 'rtc-offer'; to: number; sdp: string }
   | { t: 'rtc-answer'; sdp: string }
@@ -64,8 +70,12 @@ export type ServerMsg =
   | { t: 'heartbeat'; playing: boolean; pos: number }
   | { t: 'chat'; from: string; text: string }
   | { t: 'poke'; from: string }
+  | { t: 'voice'; cid: number; on: boolean }
   | { t: 'notice'; msg: string }
   | { t: 'err'; msg: string }
+  | { t: 'v-offer'; from: number; sdp: string }
+  | { t: 'v-answer'; from: number; sdp: string }
+  | { t: 'v-ice'; from: number; candidate: IceLike }
   | { t: 'rtc-offer'; from: number; sdp: string }
   | { t: 'rtc-answer'; from: number; sdp: string }
   | { t: 'rtc-ice'; from: number; candidate: IceLike };

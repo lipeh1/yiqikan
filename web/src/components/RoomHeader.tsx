@@ -22,6 +22,7 @@ export function RoomHeader({ state }: { state: RoomState }) {
         {state.members.map((m) => (
           <span key={m.cid} className="chip">
             {m.host ? '👑 ' : ''}
+            {m.voice ? '🎙' : ''}
             {m.name}
             {m.cid === state.myCid ? '（我）' : ''}
           </span>

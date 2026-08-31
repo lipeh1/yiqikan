@@ -123,3 +123,76 @@ export class ViewerShare {
     this.pc.close();
   }
 }
+
+/**
+ * 连麦语音：一条独立的音频双向 PeerConnection，与屏幕共享的互不干扰。
+ * 规则：双方各自先开麦（voice on），都就绪后由屋主发起 call()。
+ */
+export class VoiceLink {
+  readonly pc: RTCPeerConnection;
+  private pendingIce: IceLike[] = [];
+
+  constructor(
+    localStream: MediaStream | null,
+    private send: SendFn,
+    private peerCid: number | 'host',
+    onRemoteStream: (s: MediaStream) => void,
+  ) {
+    this.pc = new RTCPeerConnection(RTC_CONFIG);
+    if (localStream) {
+      for (const t of localStream.getAudioTracks()) this.pc.addTrack(t, localStream);
+    }
+    this.pc.ontrack = (e) => onRemoteStream(e.streams[0]);
+    this.pc.onicecandidate = (e) => {
+      if (e.candidate) this.send({ t: 'v-ice', to: this.peerCid, candidate: e.candidate.toJSON() });
+    };
+  }
+
+  /** 屋主侧发起 */
+  async call(cid: number): Promise<void> {
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    this.send({ t: 'v-offer', to: cid, sdp: this.pc.localDescription!.sdp });
+  }
+
+  /** 屋主侧：收到对方 answer */
+  async handleAnswer(sdp: string): Promise<void> {
+    try {
+      await this.pc.setRemoteDescription({ type: 'answer', sdp });
+      for (const c of this.pendingIce) {
+        await this.pc.addIceCandidate(c as RTCIceCandidateInit).catch(() => {});
+      }
+      this.pendingIce = [];
+    } catch {
+      /* 坏 answer，忽略 */
+    }
+  }
+
+  /** 观众侧应答 */
+  async answer(sdp: string): Promise<void> {
+    try {
+      await this.pc.setRemoteDescription({ type: 'offer', sdp });
+      const answer = await this.pc.createAnswer();
+      await this.pc.setLocalDescription(answer);
+      this.send({ t: 'v-answer', sdp: this.pc.localDescription!.sdp });
+      for (const c of this.pendingIce) {
+        await this.pc.addIceCandidate(c as RTCIceCandidateInit).catch(() => {});
+      }
+      this.pendingIce = [];
+    } catch {
+      /* 坏 offer，忽略 */
+    }
+  }
+
+  handleIce(c: IceLike): void {
+    if (!this.pc.remoteDescription) {
+      this.pendingIce.push(c);
+      return;
+    }
+    void this.pc.addIceCandidate(c as RTCIceCandidateInit).catch(() => {});
+  }
+
+  close(): void {
+    this.pc.close();
+  }
+}

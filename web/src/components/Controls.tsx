@@ -108,6 +108,9 @@ export function Controls({
             {shareLabel}
           </button>
         )}
+        <button onClick={() => void actions.toggleVoice()}>
+          {state.voiceOn ? '📞 挂断连麦' : '🎤 连麦'}
+        </button>
         <button onClick={actions.poke}>戳一下</button>
         <button onClick={onToggleChat}>聊天</button>
       </div>
