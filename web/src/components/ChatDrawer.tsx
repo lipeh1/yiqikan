@@ -31,14 +31,28 @@ export function ChatDrawer({ open, chat, onSend, onClose }: Props) {
   };
 
   return (
-    <div id="chatDrawer" className={open ? '' : 'hidden'}>
+    <aside id="chatDrawer" className={open ? '' : 'hidden'} aria-label="聊天">
+      <div className="chat-head">
+        <div>
+          <span className="chat-kicker">LIVE NOTES</span>
+          <strong>聊天</strong>
+        </div>
+        <button type="button" className="closeChat" onClick={onClose}>
+          收起
+        </button>
+      </div>
+
       <div id="chatLog" ref={logRef}>
-        {chat.map((c, i) => (
-          <div key={i} className={`msg${c.mine ? ' mine' : ''}`}>
-            <b>{c.from}</b>
-            {c.text}
-          </div>
-        ))}
+        {chat.length === 0 ? (
+          <p className="chat-empty">还没有留言，先说句“开场了”。</p>
+        ) : (
+          chat.map((c, i) => (
+            <div key={i} className={`msg${c.mine ? ' mine' : ''}`}>
+              <span className="msg-from">{c.from}</span>
+              <span className="msg-text">{c.text}</span>
+            </div>
+          ))
+        )}
       </div>
       <form id="chatForm" onSubmit={submit}>
         <input
@@ -50,10 +64,7 @@ export function ChatDrawer({ open, chat, onSend, onClose }: Props) {
           onChange={(e) => setDraft(e.target.value)}
         />
         <button>发送</button>
-        <button type="button" className="closeChat" onClick={onClose}>
-          收起
-        </button>
       </form>
-    </div>
+    </aside>
   );
 }

@@ -2,6 +2,77 @@ import { useEffect, useRef, useState } from 'react';
 import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
 
+type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'spark' | 'chat';
+
+function ControlIcon({ name }: { name: IconName }) {
+  const common = {
+    className: 'control-icon',
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+
+  switch (name) {
+    case 'play':
+      return (
+        <svg {...common}>
+          <path d="m8 5 11 7-11 7V5Z" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'pause':
+      return (
+        <svg {...common}>
+          <path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case 'expand':
+      return (
+        <svg {...common}>
+          <path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4" />
+          <path d="M4 4l5 5M20 4l-5 5M20 20l-5-5M4 20l5-5" opacity=".45" />
+        </svg>
+      );
+    case 'film':
+      return (
+        <svg {...common}>
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 5v14M16 5v14M4 9h4M16 9h4M4 15h4M16 15h4" />
+        </svg>
+      );
+    case 'screen':
+      return (
+        <svg {...common}>
+          <rect x="3" y="4" width="18" height="13" rx="2" />
+          <path d="M8 21h8M12 17v4" />
+        </svg>
+      );
+    case 'mic':
+      return (
+        <svg {...common}>
+          <rect x="8" y="3" width="8" height="12" rx="4" />
+          <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+        </svg>
+      );
+    case 'spark':
+      return (
+        <svg {...common}>
+          <path d="m12 3 1.5 6.5L20 12l-6.5 1.5L12 20l-1.5-6.5L4 12l6.5-2.5L12 3Z" />
+        </svg>
+      );
+    case 'chat':
+      return (
+        <svg {...common}>
+          <path d="M5 5h14v10H9l-4 4V5Z" />
+          <path d="M9 10h.01M12 10h.01M15 10h.01" strokeWidth="2.4" />
+        </svg>
+      );
+  }
+}
+
 interface Props {
   stageRef: React.RefObject<{ el: HTMLDivElement | null }>;
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -72,11 +143,11 @@ export function Controls({
     }
   };
 
-  const playLabel = paused ? '▶ 播放' : '⏸ 暂停';
-  const shareLabel = state.sharing ? '⏹ 停止共享' : '屏幕共享';
+  const playLabel = paused ? '播放' : '暂停';
+  const shareLabel = state.sharing ? '停止共享' : '屏幕共享';
 
   return (
-    <div id="controls">
+    <section id="controls" aria-label="播放控制">
       <div id="progressRow">
         <span>{fmt(cur)}</span>
         <input
@@ -94,25 +165,36 @@ export function Controls({
       </div>
 
       <div id="btnRow">
-        <button className="primary" disabled={!canSync} onClick={onTogglePlay}>
-          {playLabel}
+        <button className="primary control-button" disabled={!canSync} onClick={onTogglePlay}>
+          <ControlIcon name={paused ? 'play' : 'pause'} />
+          <span>{playLabel}</span>
         </button>
-        <button onClick={fullscreen} title="全屏">
-          ⛶
+        <button className="control-button" onClick={fullscreen} title="全屏">
+          <ControlIcon name="expand" />
+          <span>全屏</span>
         </button>
-        <button disabled={!canSync} onClick={() => setSrcOpen((v) => !v)}>
-          选片
+        <button className="control-button" disabled={!canSync} onClick={() => setSrcOpen((v) => !v)}>
+          <ControlIcon name="film" />
+          <span>选片</span>
         </button>
         {state.isHost && (
-          <button onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}>
-            {shareLabel}
+          <button className="control-button" onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}>
+            <ControlIcon name="screen" />
+            <span>{shareLabel}</span>
           </button>
         )}
-        <button onClick={() => void actions.toggleVoice()}>
-          {state.voiceOn ? '📞 挂断连麦' : '🎤 连麦'}
+        <button className={`control-button${state.voiceOn ? ' is-active' : ''}`} onClick={() => void actions.toggleVoice()}>
+          <ControlIcon name="mic" />
+          <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
         </button>
-        <button onClick={actions.poke}>戳一下</button>
-        <button onClick={onToggleChat}>聊天</button>
+        <button className="control-button" onClick={actions.poke}>
+          <ControlIcon name="spark" />
+          <span>戳一下</span>
+        </button>
+        <button className="control-button" onClick={onToggleChat}>
+          <ControlIcon name="chat" />
+          <span>聊天</span>
+        </button>
       </div>
 
       {srcOpen && canSync && (
@@ -148,8 +230,8 @@ export function Controls({
             : '你是屋主：选片、播放、拖进度都由你控制'
           : state.mode === 'share'
             ? '正在观看屋主的屏幕，想TA了就戳一下'
-            : '跟着屋主的进度走，想TA了就戳一下'}
+          : '跟着屋主的进度走，想TA了就戳一下'}
       </p>
-    </div>
+    </section>
   );
 }

@@ -41,7 +41,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
   const sharing = mode === 'share' && shareActive;
 
   return (
-    <div id="stage" ref={stageDivRef}>
+    <div id="stage" ref={stageDivRef} aria-label="影片画面">
       {/* 同步播放模式的视频 */}
       {!sharing && <video ref={videoRef} playsInline />}
 
@@ -97,7 +97,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
 
       {showUnlock && (
         <div className="placeholder">
-          <button className="primary" onClick={onUnlock}>
+          <button className="primary unlock-button" onClick={onUnlock}>
             点一下开始接收
           </button>
         </div>
