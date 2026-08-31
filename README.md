@@ -22,7 +22,7 @@
 
 ```bash
 npm install
-npm run dev        # 同时起 server(:3000) 和 vite(:5173)，浏览器开 5173
+npm run dev        # 同时起 server(:10000) 和 vite(:9999)，浏览器开 http://localhost:9999
 ```
 
 ## 常用脚本
@@ -53,8 +53,8 @@ CI：`.github/workflows/ci.yml`，push/PR 自动跑 lint + typecheck + build + t
 **1. 内网穿透，把家里电脑当服务器（推荐起步）**
 
 ```bash
-npm run build && npm start           # 窗口1
-npx localtunnel --port 3000          # 窗口2：得到 https://xxx.loca.lt
+npm run build && npm start           # 窗口1（服务在 :10000）
+npx localtunnel --port 10000         # 窗口2：得到 https://xxx.loca.lt
 ```
 
 浏览器首次访问 localtunnel 有个提示页，按提示输入页面上显示的 IP 即可；

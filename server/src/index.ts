@@ -4,7 +4,7 @@ import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { handleClose, handleMsg, newConn, type Conn } from './rooms';
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 10000;
 // 生产模式托管 vite 构建产物；开发时前端走 vite dev server，这里只管接口
 const WEB_DIST = path.resolve(__dirname, '../../dist/web');
 

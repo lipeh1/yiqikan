@@ -9,9 +9,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port: 5173,
+    port: 9999,
     proxy: {
-      '/ws': { target: 'ws://localhost:3000', ws: true },
+      '/ws': { target: 'ws://localhost:10000', ws: true },
     },
   },
 });
