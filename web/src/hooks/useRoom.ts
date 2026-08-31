@@ -125,6 +125,11 @@ export function useRoom() {
     [events, send],
   );
 
+  // 状态更新是异步的，不能只依赖点按连麦时的旧快照；双方都开麦后由屋主自动发起连接。
+  useEffect(() => {
+    maybeStartVoice();
+  }, [maybeStartVoice, state.isHost, state.members, state.voiceOn]);
+
   const startShare = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
