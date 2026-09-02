@@ -204,8 +204,9 @@ export class ViewerShare {
 }
 
 /**
- * 连麦语音：一条独立的音频双向 PeerConnection，与屏幕共享的互不干扰。
- * 规则：双方各自先开麦（voice on），都就绪后由屋主发起 call()。
+ * 连麦（音视频）：一条双向 PeerConnection，与屏幕共享的互不干扰。
+ * 支持纯语音（只带 audio 轨）或音视频（audio+video 轨），各自传各自有的轨。
+ * 规则：双方各自先开麦/开摄像头，都就绪后由屋主发起 call()。
  */
 export class VoiceLink {
   readonly pc: RTCPeerConnection;
@@ -219,7 +220,7 @@ export class VoiceLink {
   ) {
     this.pc = new RTCPeerConnection(RTC_CONFIG);
     if (localStream) {
-      for (const t of localStream.getAudioTracks()) this.pc.addTrack(t, localStream);
+      for (const t of localStream.getTracks()) this.pc.addTrack(t, localStream);
     }
     this.pc.ontrack = (e) => onRemoteStream(e.streams[0]);
     this.pc.onicecandidate = (e) => {

@@ -33,6 +33,7 @@ export interface RoomState {
   shareActive: boolean;
   hasRemoteStream: boolean;
   voiceOn: boolean;
+  camOn: boolean;
   quality: ShareQuality;
 }
 
@@ -41,6 +42,7 @@ export interface RoomEvents {
   'share-stream': MediaStream;
   'share-ended': void;
   'voice-stream': MediaStream;
+  'local-video': MediaStream | null;
 }
 
 const INITIAL: RoomState = {
@@ -60,6 +62,7 @@ const INITIAL: RoomState = {
   shareActive: false,
   hasRemoteStream: false,
   voiceOn: false,
+  camOn: false,
   quality: 'hd',
 };
 
@@ -257,6 +260,19 @@ export function useRoom() {
           }
           break;
         }
+        case 'cam': {
+          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, cam: m.on } : x));
+          set({ members });
+          if (m.cid === s.myCid) break;
+          const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
+          if (m.on) {
+            toast(`${who} 开了摄像头${s.camOn ? '' : '，点 📷 一起看脸'}`);
+            maybeStartVoice();
+          } else {
+            toast(`${who} 关了摄像头`);
+          }
+          break;
+        }
         case 'v-offer': {
           voicePcRef.current?.close();
           const link = new VoiceLink(localVoiceRef.current, send, 'host', (stream) =>
@@ -367,10 +383,15 @@ export function useRoom() {
     toast('戳了戳对方');
   }, [send, toast]);
 
+  const stopLocalMedia = useCallback(() => {
+    localVoiceRef.current?.getTracks().forEach((t) => t.stop());
+    localVoiceRef.current = null;
+    events.emit('local-video', null);
+  }, [events]);
+
   const toggleVoice = useCallback(async () => {
     if (stateRef.current.voiceOn) {
-      localVoiceRef.current?.getTracks().forEach((t) => t.stop());
-      localVoiceRef.current = null;
+      stopLocalMedia();
       hangupVoice();
       send({ t: 'voice', on: false });
       set({ voiceOn: false });
@@ -386,7 +407,32 @@ export function useRoom() {
     } catch {
       toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
     }
-  }, [hangupVoice, maybeStartVoice, send, set, toast]);
+  }, [hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
+
+  const toggleCamera = useCallback(async () => {
+    if (stateRef.current.camOn) {
+      stopLocalMedia();
+      hangupVoice();
+      send({ t: 'voice', on: false });
+      send({ t: 'cam', on: false });
+      set({ voiceOn: false, camOn: false });
+      toast('摄像头已关');
+      return;
+    }
+    try {
+      // 音视频一起开：看脸自然要说话，一条流两个轨一起走
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      localVoiceRef.current = stream;
+      events.emit('local-video', stream);
+      send({ t: 'voice', on: true });
+      send({ t: 'cam', on: true });
+      set({ voiceOn: true, camOn: true });
+      toast('摄像头已开，对方能看到你了');
+      maybeStartVoice();
+    } catch {
+      toast('拿不到摄像头/麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
+    }
+  }, [events, hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
 
   useEffect(() => {
     return () => {
@@ -410,6 +456,7 @@ export function useRoom() {
       stopShare,
       setQuality,
       toggleVoice,
+      toggleCamera,
       chat,
       poke,
       send,

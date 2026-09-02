@@ -205,5 +205,53 @@ host.waitFor('v-ice', (m) => {
 guest.waitFor('v-ice', (m) => {
   assert.equal(m.candidate.candidate, 'voice-ice-2');
   console.log('OK 屋主连麦 ICE 定向送达观众');
+  // —— 摄像头（音视频连麦） ——
+  guest.send({ t: 'cam', on: true });
+});
+
+host.waitFor(
+  'cam',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, true);
+    console.log('OK 观众开摄像头状态到达屋主');
+    host.send({ t: 'cam', on: true });
+  },
+  (m) => m.t === 'cam' && m.cid === guestCid,
+);
+
+guest.waitFor(
+  'cam',
+  (m) => {
+    assert.equal(m.cid, hostCid);
+    assert.equal(m.on, true);
+    console.log('OK 屋主开摄像头状态到达观众');
+    // 摄像头复用 v-* 信令通道，无需新信令
+    host.send({ t: 'v-offer', to: guestCid, sdp: 'fake-cam-offer' });
+  },
+  (m) => m.t === 'cam' && m.cid === hostCid,
+);
+
+guest.waitFor('v-offer', (m) => {
+  assert.equal(m.sdp, 'fake-cam-offer');
+  console.log('OK 摄像头连接复用连麦 offer 通道');
+  guest.send({ t: 'v-answer', sdp: 'fake-cam-answer' });
+});
+
+host.waitFor('v-answer', (m) => {
+  assert.equal(m.from, guestCid);
+  console.log('OK 摄像头 answer 路由回屋主');
+  guest.send({ t: 'v-ice', to: 'host', candidate: { candidate: 'cam-ice-1' } });
+});
+
+host.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'cam-ice-1');
+  console.log('OK 观众摄像头 ICE 到达屋主');
+  host.send({ t: 'v-ice', to: guestCid, candidate: { candidate: 'cam-ice-2' } });
+});
+
+guest.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'cam-ice-2');
+  console.log('OK 屋主摄像头 ICE 定向送达观众');
   host.send({ t: 'share-stop' });
 });
