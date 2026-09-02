@@ -291,9 +291,15 @@ host.waitFor(
   (m) => m.t === 'mute' && m.cid === guestCid && m.on === false,
 );
 
-host.waitFor('voice', (m) => {
-  assert.equal(m.cid, guestCid);
-  assert.equal(m.on, false);
-  console.log('OK 观众挂断连麦');
-  host.send({ t: 'share-stop' });
-});
+// 注意：这里必须带 match——服务端广播会把 voice 回传给发送者自己（host 也会
+// 收到自己开麦的广播），无 match 的 voice step 会被 host 自己开麦的广播提前消费。
+host.waitFor(
+  'voice',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, false);
+    console.log('OK 观众挂断连麦');
+    host.send({ t: 'share-stop' });
+  },
+  (m) => m.t === 'voice' && m.cid === guestCid && m.on === false,
+);
