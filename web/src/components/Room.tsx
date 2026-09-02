@@ -12,12 +12,15 @@ export function Room({ room }: { room: RoomApi }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shareVideoRef = useRef<HTMLVideoElement>(null);
   const voiceAudioRef = useRef<HTMLAudioElement>(null);
+  const localCamRef = useRef<HTMLVideoElement>(null);
+  const remoteCamRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<StageRef>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [pickedTitle, setPickedTitle] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [remoteCamActive, setRemoteCamActive] = useState(false);
 
   const pendingRef = useRef<SyncState | null>(null);
   const stateRef = useRef(state);
@@ -61,9 +64,23 @@ export function Room({ room }: { room: RoomApi }) {
       events.on('share-ended', () => setShareStream(null)),
       events.on('voice-stream', (s) => {
         const a = voiceAudioRef.current;
-        if (!a) return;
-        a.srcObject = s;
-        a.play().catch(() => setShowUnlock(true));
+        if (a) {
+          a.srcObject = s;
+          a.play().catch(() => setShowUnlock(true));
+        }
+        // 音视频连麦：远端流可能带视频轨，显示到摄像头小窗
+        const hasVideo = s.getVideoTracks().length > 0;
+        setRemoteCamActive(hasVideo);
+        if (hasVideo && remoteCamRef.current) {
+          remoteCamRef.current.srcObject = s;
+          remoteCamRef.current.play().catch(() => setShowUnlock(true));
+        }
+      }),
+      events.on('local-video', (s) => {
+        const v = localCamRef.current;
+        if (!v) return;
+        v.srcObject = s;
+        if (s) v.play().catch(() => {});
       }),
     ];
     return () => offs.forEach((off) => off());
@@ -112,6 +129,7 @@ export function Room({ room }: { room: RoomApi }) {
       };
       tryPlay(videoRef.current);
       tryPlay(shareVideoRef.current);
+      tryPlay(remoteCamRef.current);
       void voiceAudioRef.current?.play().catch(() => {});
     };
     document.addEventListener('pointerdown', arm);
@@ -161,6 +179,7 @@ export function Room({ room }: { room: RoomApi }) {
         .catch(() => {});
     tryPlay(videoRef.current);
     tryPlay(shareVideoRef.current);
+    tryPlay(remoteCamRef.current);
   };
 
   return (
@@ -181,7 +200,14 @@ export function Room({ room }: { room: RoomApi }) {
         shareActive={state.shareActive}
         pickedTitle={pickedTitle}
         onPickLocal={onFollowerLocalFile}
-      />      <Controls
+      />
+      {/* 音视频连麦：远端摄像头小窗（有视频轨才显示） */}
+      {remoteCamActive && (
+        <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay muted={false} />
+      )}
+      {/* 本地摄像头预览（开摄像头时显示，静音防回声） */}
+      {state.camOn && <video ref={localCamRef} id="localCam" playsInline autoPlay muted />}
+      <Controls
         stageRef={stageRef}
         videoRef={videoRef}
         state={state}
