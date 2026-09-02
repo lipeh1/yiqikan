@@ -176,7 +176,7 @@ export function Room({ room }: { room: RoomApi }) {
           v.src = src.url;
           v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
         } else {
-          toast('这个浏览器不支持 m3u8 播放');
+          window.alert('这个浏览器不支持 m3u8 播放');
         }
         return;
       }
@@ -186,7 +186,7 @@ export function Room({ room }: { room: RoomApi }) {
         v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
       }
     }
-  }, [state.src, applyPendingOnce, toast]);
+  }, [state.src, applyPendingOnce]);
 
   // 卸载时销毁 hls 实例
   useEffect(() => () => void hlsRef.current?.destroy(), []);
