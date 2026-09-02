@@ -6,9 +6,11 @@ interface Props {
   chat: ChatItem[];
   onSend: (text: string) => void;
   onClose: () => void;
+  barrageOn: boolean;
+  onToggleBarrage: () => void;
 }
 
-export function ChatDrawer({ open, chat, onSend, onClose }: Props) {
+export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBarrage }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -37,9 +39,19 @@ export function ChatDrawer({ open, chat, onSend, onClose }: Props) {
           <span className="chat-kicker">LIVE NOTES</span>
           <strong>聊天</strong>
         </div>
-        <button type="button" className="closeChat" onClick={onClose}>
-          收起
-        </button>
+        <div className="chat-head-actions">
+          <button
+            type="button"
+            className={`mini barrage-toggle${barrageOn ? ' is-on' : ''}`}
+            onClick={onToggleBarrage}
+            title={barrageOn ? '弹幕已开：消息会飘在画面上' : '弹幕已关：消息只在聊天里'}
+          >
+            弹幕{barrageOn ? '开' : '关'}
+          </button>
+          <button type="button" className="closeChat" onClick={onClose}>
+            收起
+          </button>
+        </div>
       </div>
 
       <div id="chatLog" ref={logRef}>

@@ -35,6 +35,7 @@ export interface RoomState {
   voiceOn: boolean;
   camOn: boolean;
   micMuted: boolean;
+  barrageOn: boolean;
   quality: ShareQuality;
 }
 
@@ -44,6 +45,7 @@ export interface RoomEvents {
   'share-ended': void;
   'voice-stream': MediaStream;
   'local-video': MediaStream | null;
+  barrage: { text: string; mine: boolean };
 }
 
 const INITIAL: RoomState = {
@@ -65,6 +67,7 @@ const INITIAL: RoomState = {
   voiceOn: false,
   camOn: false,
   micMuted: false,
+  barrageOn: false,
   quality: 'hd',
 };
 
@@ -242,6 +245,7 @@ export function useRoom() {
           break;
         case 'chat':
           set({ chat: [...s.chat.slice(-199), { from: m.from, text: m.text, mine: false }] });
+          events.emit('barrage', { text: m.text, mine: false });
           break;
         case 'poke':
           navigator.vibrate?.([120, 60, 120]);
@@ -387,8 +391,9 @@ export function useRoom() {
       const s = stateRef.current;
       send({ t: 'chat', text });
       set({ chat: [...s.chat.slice(-199), { from: `${s.myName}（我）`, text, mine: true }] });
+      events.emit('barrage', { text, mine: true });
     },
-    [send, set],
+    [send, set, events],
   );
 
   const poke = useCallback(() => {
@@ -472,6 +477,11 @@ export function useRoom() {
     toast(next ? '已静音' : '已取消静音');
   }, [send, set, toast]);
 
+  // 弹幕开关：开启后聊天消息会在影片画面上飘过（复用 chat 通道，只影响显示）
+  const toggleBarrage = useCallback(() => {
+    set({ barrageOn: !stateRef.current.barrageOn });
+  }, [set]);
+
   useEffect(() => {
     return () => {
       sharerRef.current?.stop();
@@ -496,6 +506,7 @@ export function useRoom() {
       toggleVoice,
       toggleCamera,
       toggleMute,
+      toggleBarrage,
       chat,
       poke,
       send,
