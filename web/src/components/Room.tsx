@@ -3,7 +3,7 @@ import type { RoomApi } from '../hooks/useRoom';
 import type { SyncState } from '../../../shared/protocol';
 import { shouldSeek } from '../lib/util';
 import { RoomHeader } from './RoomHeader';
-import { VideoStage, type BarrageItem } from './VideoStage';
+import { VideoStage, type StageRef, type BarrageItem } from './VideoStage';
 import { Controls } from './Controls';
 import { ChatDrawer } from './ChatDrawer';
 
