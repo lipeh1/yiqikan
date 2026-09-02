@@ -8,7 +8,7 @@ import type {
   SyncState,
 } from '../../../shared/protocol';
 import { Emitter } from '../lib/emitter';
-import { HostSharer, ViewerShare, VoiceLink } from '../lib/webrtc';
+import { HostSharer, ViewerShare, VoiceLink, type ShareQuality } from '../lib/webrtc';
 
 export interface ChatItem {
   from: string;
@@ -29,10 +29,11 @@ export interface RoomState {
   chat: ChatItem[];
   toast: string | null;
   lobbyErr: string;
-  sharing: boolean; // 本端（屋主）正在推流
-  shareActive: boolean; // 房间处于共享模式（观众据此切换画面）
-  hasRemoteStream: boolean; // 观众已收到画面流
-  voiceOn: boolean; // 本端在麦上
+  sharing: boolean;
+  shareActive: boolean;
+  hasRemoteStream: boolean;
+  voiceOn: boolean;
+  quality: ShareQuality;
 }
 
 export interface RoomEvents {
@@ -59,10 +60,18 @@ const INITIAL: RoomState = {
   shareActive: false,
   hasRemoteStream: false,
   voiceOn: false,
+  quality: 'hd',
 };
 
+const QUALITY_KEY = 'yiqikan-share-quality';
+
+function readQuality(): ShareQuality {
+  const v = localStorage.getItem(QUALITY_KEY);
+  return v === 'auto' || v === 'hd' || v === 'uhd' ? v : 'hd';
+}
+
 export function useRoom() {
-  const [state, setState] = useState<RoomState>(INITIAL);
+  const [state, setState] = useState<RoomState>({ ...INITIAL, quality: readQuality() });
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -108,7 +117,6 @@ export function useRoom() {
     voicePcRef.current = null;
   }, []);
 
-  /** 双方都在麦上时，屋主负责发起音频连接 */
   const maybeStartVoice = useCallback(
     (forceHost?: boolean) => {
       const s = stateRef.current;
@@ -125,7 +133,6 @@ export function useRoom() {
     [events, send],
   );
 
-  // 状态更新是异步的，不能只依赖点按连麦时的旧快照；双方都开麦后由屋主自动发起连接。
   useEffect(() => {
     maybeStartVoice();
   }, [maybeStartVoice, state.isHost, state.members, state.voiceOn]);
@@ -133,13 +140,12 @@ export function useRoom() {
   const startShare = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 15 } },
+        video: { frameRate: { ideal: 60 } },
         audio: true,
       });
-      const sharer = new HostSharer(stream, send);
+      const sharer = new HostSharer(stream, send, stateRef.current.quality);
       stream.getVideoTracks()[0]?.addEventListener('ended', () => stopShare());
       sharerRef.current = sharer;
-      // 已在房间的观众逐个推流
       for (const m of stateRef.current.members) {
         if (!m.host) await sharer.addViewer(m.cid);
       }
@@ -150,6 +156,14 @@ export function useRoom() {
       toast('没有选择屏幕，或浏览器不允许采集');
     }
   }, [send, set, stopShare, toast]);
+
+  const setQuality = useCallback(
+    (q: ShareQuality) => {
+      localStorage.setItem(QUALITY_KEY, q);
+      set({ quality: q });
+    },
+    [set],
+  );
 
   const handle = useCallback(
     (m: ServerMsg) => {
@@ -190,14 +204,12 @@ export function useRoom() {
           hangupVoice();
           set({ isHost: true, hasRemoteStream: false, sharing: false });
           toast('你成了新屋主');
-          // 若双方麦克风都还开着，以新屋主身份重建连麦
           maybeStartVoice(true);
           break;
         case 'member': {
           set({ members: m.members });
           if (m.action === 'join') {
             toast(`${m.name} 进来了`);
-            // 新观众中途加入且本端正在共享 → 给TA补一路推流
             if (s.sharing && sharerRef.current && m.cid) void sharerRef.current.addViewer(m.cid);
           } else if (m.action === 'leave') {
             toast(`${m.name} 走开了`);
@@ -232,7 +244,6 @@ export function useRoom() {
           set({ chat: [...s.chat.slice(-199), { from: '戳一戳', text: '戳了戳你，快看片！', mine: false }] });
           break;
         case 'voice': {
-          // 更新成员在麦状态；自己的回显只刷新数据不弹提示
           const members = s.members.map((x) => (x.cid === m.cid ? { ...x, voice: m.on } : x));
           set({ members });
           if (m.cid === s.myCid) break;
@@ -247,7 +258,6 @@ export function useRoom() {
           break;
         }
         case 'v-offer': {
-          // 观众：收到屋主的连麦邀约
           voicePcRef.current?.close();
           const link = new VoiceLink(localVoiceRef.current, send, 'host', (stream) =>
             events.emit('voice-stream', stream),
@@ -269,7 +279,6 @@ export function useRoom() {
           toast(m.msg);
           break;
         case 'rtc-offer': {
-          // 观众：收到屋主的屏幕推流邀约
           viewerRef.current?.close();
           const v = new ViewerShare(send, (stream) => {
             events.emit('share-stream', stream);
@@ -360,7 +369,6 @@ export function useRoom() {
 
   const toggleVoice = useCallback(async () => {
     if (stateRef.current.voiceOn) {
-      // 挂断：关麦、断连接、广播状态
       localVoiceRef.current?.getTracks().forEach((t) => t.stop());
       localVoiceRef.current = null;
       hangupVoice();
@@ -400,6 +408,7 @@ export function useRoom() {
       setSourceLocal,
       startShare,
       stopShare,
+      setQuality,
       toggleVoice,
       chat,
       poke,
