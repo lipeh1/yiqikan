@@ -3,16 +3,7 @@ import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
 import type { ShareQuality } from '../lib/webrtc';
 
-type IconName =
-  | 'play'
-  | 'pause'
-  | 'expand'
-  | 'film'
-  | 'screen'
-  | 'mic'
-  | 'cam'
-  | 'spark'
-  | 'chat';
+type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'micoff' | 'cam' | 'spark' | 'chat';
 
 function ControlIcon({ name }: { name: IconName }) {
   const common = {
@@ -65,6 +56,14 @@ function ControlIcon({ name }: { name: IconName }) {
         <svg {...common}>
           <rect x="8" y="3" width="8" height="12" rx="4" />
           <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+        </svg>
+      );
+    case 'micoff':
+      return (
+        <svg {...common}>
+          <rect x="8" y="3" width="8" height="12" rx="4" />
+          <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+          <path d="M4 4l16 16" strokeWidth="2.2" />
         </svg>
       );
     case 'cam':
@@ -124,6 +123,7 @@ export function Controls({
   const draggingRef = useRef(false);
 
   const canSync = state.isHost && state.mode === 'sync';
+  const inCall = state.voiceOn || state.camOn;
 
   // 轮询进度（<video> 的时间变化没有好用的回调，500ms 足够顺滑）
   useEffect(() => {
@@ -229,7 +229,7 @@ export function Controls({
         <button
           className={`control-button${state.voiceOn ? ' is-active' : ''}`}
           onClick={() => void actions.toggleVoice()}
-          title="连麦：语音聊天，建议戴耳机防啸叫"
+          title="连麦：语音聊天，采集已开降噪，建议戴耳机防啸叫"
         >
           <ControlIcon name="mic" />
           <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
@@ -242,6 +242,16 @@ export function Controls({
           <ControlIcon name="cam" />
           <span>{state.camOn ? '关摄像头' : '摄像头'}</span>
         </button>
+        {inCall && (
+          <button
+            className={`control-button${state.micMuted ? ' is-active' : ''}`}
+            onClick={actions.toggleMute}
+            title="静音：本地静音，连接不断"
+          >
+            <ControlIcon name={state.micMuted ? 'micoff' : 'mic'} />
+            <span>{state.micMuted ? '取消静音' : '静音'}</span>
+          </button>
+        )}
         <button className="control-button" onClick={actions.poke}>
           <ControlIcon name="spark" />
           <span>戳一下</span>
