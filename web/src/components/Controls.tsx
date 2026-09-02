@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
+import type { ShareQuality } from '../lib/webrtc';
 
 type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'spark' | 'chat';
 
@@ -82,6 +83,12 @@ interface Props {
   onTogglePlay: () => void;
   onToggleChat: () => void;
 }
+
+const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = [
+  { value: 'auto', label: '流畅', hint: '2.5Mbps · 网络差/中继时稳' },
+  { value: 'hd', label: '高清', hint: '8Mbps · 默认' },
+  { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
+];
 
 export function Controls({
   stageRef,
@@ -178,12 +185,35 @@ export function Controls({
           <span>选片</span>
         </button>
         {state.isHost && (
-          <button className="control-button" onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}>
+          <button
+            className="control-button"
+            onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}
+          >
             <ControlIcon name="screen" />
             <span>{shareLabel}</span>
           </button>
         )}
-        <button className={`control-button${state.voiceOn ? ' is-active' : ''}`} onClick={() => void actions.toggleVoice()}>
+        {state.isHost && (
+          <label className="control-button" title="屏幕共享画质：选超清看片最清晰；中继/网络差会自动降档">
+            <span className="quality-label">画质</span>
+            <select
+              className="quality-select"
+              value={state.quality}
+              onChange={(e) => actions.setQuality(e.target.value as ShareQuality)}
+              aria-label="屏幕共享画质"
+            >
+              {QUALITY_OPTIONS.map((q) => (
+                <option key={q.value} value={q.value} title={q.hint}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          className={`control-button${state.voiceOn ? ' is-active' : ''}`}
+          onClick={() => void actions.toggleVoice()}
+        >
           <ControlIcon name="mic" />
           <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
         </button>
