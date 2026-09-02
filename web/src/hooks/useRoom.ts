@@ -34,6 +34,7 @@ export interface RoomState {
   hasRemoteStream: boolean;
   voiceOn: boolean;
   camOn: boolean;
+  micMuted: boolean;
   quality: ShareQuality;
 }
 
@@ -63,6 +64,7 @@ const INITIAL: RoomState = {
   hasRemoteStream: false,
   voiceOn: false,
   camOn: false,
+  micMuted: false,
   quality: 'hd',
 };
 
@@ -247,7 +249,9 @@ export function useRoom() {
           set({ chat: [...s.chat.slice(-199), { from: '戳一戳', text: '戳了戳你，快看片！', mine: false }] });
           break;
         case 'voice': {
-          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, voice: m.on } : x));
+          const members = s.members.map((x) =>
+            x.cid === m.cid ? { ...x, voice: m.on, muted: m.on ? x.muted : false } : x,
+          );
           set({ members });
           if (m.cid === s.myCid) break;
           const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
@@ -261,7 +265,9 @@ export function useRoom() {
           break;
         }
         case 'cam': {
-          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, cam: m.on } : x));
+          const members = s.members.map((x) =>
+            x.cid === m.cid ? { ...x, cam: m.on, muted: m.on ? x.muted : false } : x,
+          );
           set({ members });
           if (m.cid === s.myCid) break;
           const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
@@ -271,6 +277,14 @@ export function useRoom() {
           } else {
             toast(`${who} 关了摄像头`);
           }
+          break;
+        }
+        case 'mute': {
+          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, muted: m.on } : x));
+          set({ members });
+          if (m.cid === s.myCid) break;
+          const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
+          toast(m.on ? `${who} 静音了` : `${who} 取消静音`);
           break;
         }
         case 'v-offer': {
@@ -389,20 +403,27 @@ export function useRoom() {
     events.emit('local-video', null);
   }, [events]);
 
+  // 采集统一开启降噪/回声消除/自动增益（浏览器不支持的约束会被忽略，安全）
+  const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+    noiseSuppression: true,
+    echoCancellation: true,
+    autoGainControl: true,
+  };
+
   const toggleVoice = useCallback(async () => {
     if (stateRef.current.voiceOn) {
       stopLocalMedia();
       hangupVoice();
       send({ t: 'voice', on: false });
-      set({ voiceOn: false });
+      set({ voiceOn: false, micMuted: false });
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
       localVoiceRef.current = stream;
       send({ t: 'voice', on: true });
       set({ voiceOn: true });
-      toast('连麦已开，建议戴耳机防啸叫');
+      toast('连麦已开（降噪已开启），建议戴耳机防啸叫');
       maybeStartVoice();
     } catch {
       toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
@@ -415,24 +436,41 @@ export function useRoom() {
       hangupVoice();
       send({ t: 'voice', on: false });
       send({ t: 'cam', on: false });
-      set({ voiceOn: false, camOn: false });
+      set({ voiceOn: false, camOn: false, micMuted: false });
       toast('摄像头已关');
       return;
     }
     try {
-      // 音视频一起开：看脸自然要说话，一条流两个轨一起走
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      // 音视频一起开：看脸自然要说话，一条流两个轨一起走；音频同样带降噪
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: AUDIO_CONSTRAINTS,
+        video: true,
+      });
       localVoiceRef.current = stream;
       events.emit('local-video', stream);
       send({ t: 'voice', on: true });
       send({ t: 'cam', on: true });
       set({ voiceOn: true, camOn: true });
-      toast('摄像头已开，对方能看到你了');
+      toast('摄像头已开（降噪已开启），对方能看到你了');
       maybeStartVoice();
     } catch {
       toast('拿不到摄像头/麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
     }
   }, [events, hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
+
+  // 静音键：本地静音（track.enabled 置 false，连接不断），广播让对端看到状态
+  const toggleMute = useCallback(() => {
+    const s = stateRef.current;
+    if (!s.voiceOn && !s.camOn) {
+      toast('先开连麦或摄像头再静音');
+      return;
+    }
+    const next = !s.micMuted;
+    for (const t of localVoiceRef.current?.getAudioTracks() ?? []) t.enabled = !next;
+    send({ t: 'mute', on: next });
+    set({ micMuted: next });
+    toast(next ? '已静音' : '已取消静音');
+  }, [send, set, toast]);
 
   useEffect(() => {
     return () => {
@@ -457,6 +495,7 @@ export function useRoom() {
       setQuality,
       toggleVoice,
       toggleCamera,
+      toggleMute,
       chat,
       poke,
       send,
