@@ -3,7 +3,16 @@ import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
 import type { ShareQuality } from '../lib/webrtc';
 
-type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'spark' | 'chat';
+type IconName =
+  | 'play'
+  | 'pause'
+  | 'expand'
+  | 'film'
+  | 'screen'
+  | 'mic'
+  | 'cam'
+  | 'spark'
+  | 'chat';
 
 function ControlIcon({ name }: { name: IconName }) {
   const common = {
@@ -56,6 +65,13 @@ function ControlIcon({ name }: { name: IconName }) {
         <svg {...common}>
           <rect x="8" y="3" width="8" height="12" rx="4" />
           <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+        </svg>
+      );
+    case 'cam':
+      return (
+        <svg {...common}>
+          <rect x="3" y="6" width="13" height="11" rx="2" />
+          <path d="m16 10 5-3v10l-5-3" />
         </svg>
       );
     case 'spark':
@@ -213,9 +229,18 @@ export function Controls({
         <button
           className={`control-button${state.voiceOn ? ' is-active' : ''}`}
           onClick={() => void actions.toggleVoice()}
+          title="连麦：语音聊天，建议戴耳机防啸叫"
         >
           <ControlIcon name="mic" />
           <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
+        </button>
+        <button
+          className={`control-button${state.camOn ? ' is-active' : ''}`}
+          onClick={() => void actions.toggleCamera()}
+          title="摄像头：音视频连麦，互相看脸"
+        >
+          <ControlIcon name="cam" />
+          <span>{state.camOn ? '关摄像头' : '摄像头'}</span>
         </button>
         <button className="control-button" onClick={actions.poke}>
           <ControlIcon name="spark" />
