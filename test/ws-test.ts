@@ -253,5 +253,53 @@ host.waitFor('v-ice', (m) => {
 guest.waitFor('v-ice', (m) => {
   assert.equal(m.candidate.candidate, 'cam-ice-2');
   console.log('OK 屋主摄像头 ICE 定向送达观众');
-  host.send({ t: 'share-stop' });
+  // —— 静音 ——
+  guest.send({ t: 'mute', on: true });
 });
+
+host.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, true);
+    console.log('OK 观众静音状态到达屋主');
+    host.send({ t: 'mute', on: true });
+  },
+  (m) => m.t === 'mute' && m.cid === guestCid,
+);
+
+guest.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, hostCid);
+    assert.equal(m.on, true);
+    console.log('OK 屋主静音状态到达观众');
+    guest.send({ t: 'mute', on: false });
+  },
+  (m) => m.t === 'mute' && m.cid === hostCid,
+);
+
+host.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, false);
+    console.log('OK 观众取消静音到达屋主');
+    // 关连麦应复位静音（服务端在 voice off 时清 muted）
+    guest.send({ t: 'voice', on: false });
+  },
+  (m) => m.t === 'mute' && m.cid === guestCid && m.on === false,
+);
+
+// 注意：这里必须带 match——服务端广播会把 voice 回传给发送者自己（host 也会
+// 收到自己开麦的广播），无 match 的 voice step 会被 host 自己开麦的广播提前消费。
+host.waitFor(
+  'voice',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, false);
+    console.log('OK 观众挂断连麦');
+    host.send({ t: 'share-stop' });
+  },
+  (m) => m.t === 'voice' && m.cid === guestCid && m.on === false,
+);
