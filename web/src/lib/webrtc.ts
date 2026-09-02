@@ -23,6 +23,8 @@ const RELAY_QUALITY = { maxBitrate: 2_500_000, maxFramerate: 30 };
 /**
  * 偏好 H.265(HEVC) > H.264 > 其余：两端都支持 HEVC 时自动协商用 HEVC（同画质省约一半码率），
  * 任意一端不支持则自动回落 H.264（WebRTC 强制编码器，全浏览器兜底）。
+ * 注意：setCodecPreferences 是 RTCRtpTransceiver 的方法（不是 RTCPeerConnection 的），
+ * 需在 addTrack 之后、createOffer 之前调用。
  */
 function preferHevc(pc: RTCPeerConnection): void {
   try {
@@ -34,7 +36,9 @@ function preferHevc(pc: RTCPeerConnection): void {
     const h264 = match(/h264/i);
     const rest = codecs.filter((c) => !hevc.includes(c) && !h264.includes(c));
     const ordered = [...hevc, ...h264, ...rest];
-    if (ordered.length) pc.setCodecPreferences(ordered);
+    if (!ordered.length) return;
+    const video = pc.getTransceivers().find((t) => t.sender.track?.kind === 'video');
+    video?.setCodecPreferences(ordered);
   } catch {
     /* 部分浏览器不支持，忽略 */
   }
