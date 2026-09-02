@@ -352,7 +352,7 @@ export function useRoom() {
 
   const setSourceUrl = useCallback(
     (url: string) => {
-      if (!/^(https?://|\/)/.test(url)) {
+      if (!/^(https?:\/\/|\/)/.test(url)) {
         toast('要 http(s) 开头的直链');
         return;
       }
