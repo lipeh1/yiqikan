@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Hls from 'hls.js';
 import type { RoomApi } from '../hooks/useRoom';
 import type { SyncState } from '../../../shared/protocol';
 import { shouldSeek } from '../lib/util';
@@ -15,6 +16,7 @@ export function Room({ room }: { room: RoomApi }) {
   const localCamRef = useRef<HTMLVideoElement>(null);
   const remoteCamRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<StageRef>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
@@ -148,16 +150,46 @@ export function Room({ room }: { room: RoomApi }) {
     return () => document.removeEventListener('pointerdown', arm);
   }, []);
 
-  // 片源变化：直链直接加载；本地文件等各自选
+  // 片源变化：直链直接加载；.m3u8 走 hls.js（Safari 原生 HLS 回退）；本地文件等各自选
   useEffect(() => {
     const v = videoRef.current;
     const src = state.src;
     if (!v || !src) return;
-    if (src.kind === 'url' && src.url && v.src !== src.url) {
-      v.src = src.url;
-      v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+    if (src.kind === 'url' && src.url) {
+      const isHls = /\.m3u8(\?|#|$)/i.test(src.url);
+      if (isHls) {
+        // 重新选片时销毁旧实例，避免重复挂载
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hlsRef.current = hls;
+          hls.loadSource(src.url);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+          });
+        } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari/iPhone 原生支持 HLS，直接当直链放
+          v.src = src.url;
+          v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+        } else {
+          toast('这个浏览器不支持 m3u8 播放');
+        }
+        return;
+      }
+      // 普通直链
+      if (v.src !== src.url) {
+        v.src = src.url;
+        v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+      }
     }
-  }, [state.src, applyPendingOnce]);
+  }, [state.src, applyPendingOnce, toast]);
+
+  // 卸载时销毁 hls 实例
+  useEffect(() => () => void hlsRef.current?.destroy(), []);
 
   /* ---------- 片源/共享 ---------- */
 
