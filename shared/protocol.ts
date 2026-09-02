@@ -9,6 +9,7 @@ export interface Member {
   host: boolean;
   voice: boolean; // 是否在麦上（连麦语音）
   cam: boolean; // 是否开着摄像头（音视频连麦）
+  muted: boolean; // 是否静音（本地静音，对端据此显示状态）
 }
 
 export interface SourceState {
@@ -44,6 +45,7 @@ export type ClientMsg =
   // 连麦（音视频共用一条双向 PeerConnection，各自传各自有的轨）
   | { t: 'voice'; on: boolean }
   | { t: 'cam'; on: boolean }
+  | { t: 'mute'; on: boolean }
   | { t: 'v-offer'; to: number; sdp: string }
   | { t: 'v-answer'; sdp: string }
   | { t: 'v-ice'; to: number | 'host'; candidate: IceLike }
@@ -74,6 +76,7 @@ export type ServerMsg =
   | { t: 'poke'; from: string }
   | { t: 'voice'; cid: number; on: boolean }
   | { t: 'cam'; cid: number; on: boolean }
+  | { t: 'mute'; cid: number; on: boolean }
   | { t: 'notice'; msg: string }
   | { t: 'err'; msg: string }
   | { t: 'v-offer'; from: number; sdp: string }
