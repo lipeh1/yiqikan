@@ -7,7 +7,7 @@
  * 注意：本地 git status 可能显示"领先 origin/main"——树一致即已推送成功，可用 `npm run push:status` 核对。
  */
 import https from 'node:https';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,9 +55,18 @@ function req(method, apiPath, body, token) {
 }
 
 function gitToken() {
-  // 从凭据管理器取 GitHub 令牌（不回显、不落盘）
-  const input = 'protocol=https\nhost=github.com\n\n';
-  const out = sh(`printf '%s' ${JSON.stringify(input).replace(/"/g, '\\"')} | GCM_INTERACTIVE=never GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null`);
+  // 从凭据管理器取 GitHub 令牌（不回显、不落盘）。
+  // 用 execFileSync 直接喂 stdin：execSync 在 Windows 走 cmd.exe，管道语法不可用
+  const out = execFileSync(
+    'git',
+    ['credential', 'fill'],
+    {
+      cwd: ROOT,
+      encoding: 'utf8',
+      input: 'protocol=https\nhost=github.com\n\n',
+      env: { ...process.env, GCM_INTERACTIVE: 'never', GIT_TERMINAL_PROMPT: '0' },
+    },
+  ).toString();
   const m = out.match(/^password=(.+)$/m);
   if (!m) throw new Error('拿不到 GitHub 凭据：先任意方式 git push 一次让凭据管理器存住令牌');
   return m[1].trim();
