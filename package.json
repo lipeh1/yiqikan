@@ -14,7 +14,9 @@
     "start": "tsx server/src/index.ts",
     "lint": "eslint server shared web test --ext .ts,.tsx",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p web/tsconfig.json --noEmit",
-    "test": "tsx test/ws-test.ts"
+    "test": "tsx test/ws-test.ts",
+    "push": "node scripts/push-via-api.mjs",
+    "push:status": "node scripts/push-via-api.mjs status"
   },
   "dependencies": {
     "hls.js": "^1.7.1",
