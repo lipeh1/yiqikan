@@ -2,10 +2,33 @@ import type { ClientMsg, IceLike } from '../../../shared/protocol';
 
 export type SendFn = (m: ClientMsg) => void;
 
-// 腾讯公共 STUN，国内可用；没有 TURN，打洞失败就连不上（提示用户换网络/上中继）
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: ['stun:stun.qq.com:3478', 'stun:stun1.qq.com:3478'] }],
-};
+/**
+ * ICE 服务器：默认腾讯公共 STUN（国内可用）。
+ * TURN 中继可选——打洞失败时靠它兜底，用 Vite 环境变量注入（部署时在 web/.env 里填，构建时生效）：
+ *   VITE_TURN_URL=turn:你的域名:3478
+ *   VITE_TURN_USER=...
+ *   VITE_TURN_CRED=...
+ * 没填就保持纯 STUN（打洞失败会提示连不上）；填了则自动追加 TURN（udp + tcp 双通道）。
+ * 注意：走中继时带宽有限，已有 relay 检测会自动把画质压到流畅档。
+ */
+function buildIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [
+    { urls: ['stun:stun.qq.com:3478', 'stun:stun1.qq.com:3478'] },
+  ];
+  const turnUrl = ((import.meta.env.VITE_TURN_URL as string | undefined) ?? '').trim();
+  const turnUser = ((import.meta.env.VITE_TURN_USER as string | undefined) ?? '').trim();
+  const turnCred = ((import.meta.env.VITE_TURN_CRED as string | undefined) ?? '').trim();
+  if (turnUrl && turnUser && turnCred) {
+    servers.push({
+      urls: [`${turnUrl}?transport=udp`, `${turnUrl}?transport=tcp`],
+      username: turnUser,
+      credential: turnCred,
+    });
+  }
+  return servers;
+}
+
+const RTC_CONFIG: RTCConfiguration = { iceServers: buildIceServers() };
 
 /** 屏幕共享画质档位 */
 export type ShareQuality = 'auto' | 'hd' | 'uhd';
