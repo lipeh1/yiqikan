@@ -265,7 +265,7 @@ export function Controls({
       {srcOpen && canSync && (
         <div id="srcBar">
           <input
-            placeholder="粘贴视频直链（mp4/webm）"
+            placeholder="粘贴视频直链（mp4/webm/m3u8）"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
