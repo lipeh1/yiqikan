@@ -37,7 +37,7 @@ export function RoomHeader({ state }: { state: RoomState }) {
             <span className="member-name">{m.name}</span>
             {m.cid === state.myCid && <span className="member-self">你</span>}
             {m.host && <span className="member-role">屋主</span>}
-            {m.voice && <span className="member-voice">连麦中</span>}
+            {m.voice && <span className="member-voice">{m.muted ? '静音' : '连麦中'}</span>}
           </span>
         ))}
       </div>

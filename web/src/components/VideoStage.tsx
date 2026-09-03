@@ -1,6 +1,12 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { Mode, SourceState } from '../../../shared/protocol';
 
+export interface BarrageItem {
+  id: number;
+  text: string;
+  mine: boolean;
+}
+
 export interface StageRef {
   el: HTMLDivElement | null;
 }
@@ -17,6 +23,7 @@ interface Props {
   shareActive: boolean;
   pickedTitle: string | null;
   onPickLocal: (file: File) => void;
+  barrages: BarrageItem[];
 }
 
 export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
@@ -32,6 +39,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
     shareActive,
     pickedTitle,
     onPickLocal,
+    barrages,
   },
   ref,
 ) {
@@ -100,6 +108,21 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
           <button className="primary unlock-button" onClick={onUnlock}>
             点一下开始接收
           </button>
+        </div>
+      )}
+
+      {/* 悄悄话弹幕：从右往左飘过画面，自己的橙色、对方淡绿 */}
+      {barrages.length > 0 && (
+        <div className="barrage-layer" aria-hidden="true">
+          {barrages.map((b, i) => (
+            <span
+              key={b.id}
+              className={`barrage-item${b.mine ? ' mine' : ''}`}
+              style={{ top: 16 + (i % 4) * 40 }}
+            >
+              {b.text}
+            </span>
+          ))}
         </div>
       )}
     </div>

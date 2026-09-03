@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
+import type { ShareQuality } from '../lib/webrtc';
 
-type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'spark' | 'chat';
+type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'micoff' | 'cam' | 'spark' | 'chat';
 
 function ControlIcon({ name }: { name: IconName }) {
   const common = {
@@ -57,6 +58,21 @@ function ControlIcon({ name }: { name: IconName }) {
           <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
         </svg>
       );
+    case 'micoff':
+      return (
+        <svg {...common}>
+          <rect x="8" y="3" width="8" height="12" rx="4" />
+          <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+          <path d="M4 4l16 16" strokeWidth="2.2" />
+        </svg>
+      );
+    case 'cam':
+      return (
+        <svg {...common}>
+          <rect x="3" y="6" width="13" height="11" rx="2" />
+          <path d="m16 10 5-3v10l-5-3" />
+        </svg>
+      );
     case 'spark':
       return (
         <svg {...common}>
@@ -83,6 +99,12 @@ interface Props {
   onToggleChat: () => void;
 }
 
+const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = [
+  { value: 'auto', label: '流畅', hint: '2.5Mbps · 网络差/中继时稳' },
+  { value: 'hd', label: '高清', hint: '8Mbps · 默认' },
+  { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
+];
+
 export function Controls({
   stageRef,
   videoRef,
@@ -101,6 +123,7 @@ export function Controls({
   const draggingRef = useRef(false);
 
   const canSync = state.isHost && state.mode === 'sync';
+  const inCall = state.voiceOn || state.camOn;
 
   // 轮询进度（<video> 的时间变化没有好用的回调，500ms 足够顺滑）
   useEffect(() => {
@@ -178,15 +201,57 @@ export function Controls({
           <span>选片</span>
         </button>
         {state.isHost && (
-          <button className="control-button" onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}>
+          <button
+            className="control-button"
+            onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}
+          >
             <ControlIcon name="screen" />
             <span>{shareLabel}</span>
           </button>
         )}
-        <button className={`control-button${state.voiceOn ? ' is-active' : ''}`} onClick={() => void actions.toggleVoice()}>
+        {state.isHost && (
+          <label className="control-button" title="屏幕共享画质：选超清看片最清晰；中继/网络差会自动降档">
+            <span className="quality-label">画质</span>
+            <select
+              className="quality-select"
+              value={state.quality}
+              onChange={(e) => actions.setQuality(e.target.value as ShareQuality)}
+              aria-label="屏幕共享画质"
+            >
+              {QUALITY_OPTIONS.map((q) => (
+                <option key={q.value} value={q.value} title={q.hint}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          className={`control-button${state.voiceOn ? ' is-active' : ''}`}
+          onClick={() => void actions.toggleVoice()}
+          title="连麦：语音聊天，采集已开降噪，建议戴耳机防啸叫"
+        >
           <ControlIcon name="mic" />
           <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
         </button>
+        <button
+          className={`control-button${state.camOn ? ' is-active' : ''}`}
+          onClick={() => void actions.toggleCamera()}
+          title="摄像头：音视频连麦，互相看脸"
+        >
+          <ControlIcon name="cam" />
+          <span>{state.camOn ? '关摄像头' : '摄像头'}</span>
+        </button>
+        {inCall && (
+          <button
+            className={`control-button${state.micMuted ? ' is-active' : ''}`}
+            onClick={actions.toggleMute}
+            title="静音：本地静音，连接不断"
+          >
+            <ControlIcon name={state.micMuted ? 'micoff' : 'mic'} />
+            <span>{state.micMuted ? '取消静音' : '静音'}</span>
+          </button>
+        )}
         <button className="control-button" onClick={actions.poke}>
           <ControlIcon name="spark" />
           <span>戳一下</span>
@@ -200,7 +265,7 @@ export function Controls({
       {srcOpen && canSync && (
         <div id="srcBar">
           <input
-            placeholder="粘贴视频直链（mp4/webm）"
+            placeholder="粘贴视频直链（mp4/webm/m3u8）"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />

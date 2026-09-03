@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Hls from 'hls.js';
 import type { RoomApi } from '../hooks/useRoom';
 import type { SyncState } from '../../../shared/protocol';
 import { shouldSeek } from '../lib/util';
 import { RoomHeader } from './RoomHeader';
-import { VideoStage, type StageRef } from './VideoStage';
+import { VideoStage, type StageRef, type BarrageItem } from './VideoStage';
 import { Controls } from './Controls';
 import { ChatDrawer } from './ChatDrawer';
 
@@ -12,12 +13,18 @@ export function Room({ room }: { room: RoomApi }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shareVideoRef = useRef<HTMLVideoElement>(null);
   const voiceAudioRef = useRef<HTMLAudioElement>(null);
+  const localCamRef = useRef<HTMLVideoElement>(null);
+  const remoteCamRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<StageRef>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
   const [pickedTitle, setPickedTitle] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [remoteCamActive, setRemoteCamActive] = useState(false);
+  const [barrages, setBarrages] = useState<BarrageItem[]>([]);
+  const barrageIdRef = useRef(0);
 
   const pendingRef = useRef<SyncState | null>(null);
   const stateRef = useRef(state);
@@ -61,9 +68,33 @@ export function Room({ room }: { room: RoomApi }) {
       events.on('share-ended', () => setShareStream(null)),
       events.on('voice-stream', (s) => {
         const a = voiceAudioRef.current;
-        if (!a) return;
-        a.srcObject = s;
-        a.play().catch(() => setShowUnlock(true));
+        if (a) {
+          a.srcObject = s;
+          a.play().catch(() => setShowUnlock(true));
+        }
+        // 音视频连麦：远端流可能带视频轨，显示到摄像头小窗
+        const hasVideo = s.getVideoTracks().length > 0;
+        setRemoteCamActive(hasVideo);
+        if (hasVideo && remoteCamRef.current) {
+          remoteCamRef.current.srcObject = s;
+          remoteCamRef.current.play().catch(() => setShowUnlock(true));
+        }
+      }),
+      events.on('local-video', (s) => {
+        const v = localCamRef.current;
+        if (!v) return;
+        v.srcObject = s;
+        if (s) v.play().catch(() => {});
+      }),
+      events.on('barrage', ({ text, mine }) => {
+        // 弹幕开关没开就不飘（聊天记录仍正常）
+        if (!stateRef.current.barrageOn) return;
+        const id = ++barrageIdRef.current;
+        setBarrages((prev) => [...prev.slice(-5), { id, text, mine }]);
+        // 约 7 秒飘完，移出队列
+        window.setTimeout(() => {
+          setBarrages((prev) => prev.filter((b) => b.id !== id));
+        }, 7000);
       }),
     ];
     return () => offs.forEach((off) => off());
@@ -112,22 +143,53 @@ export function Room({ room }: { room: RoomApi }) {
       };
       tryPlay(videoRef.current);
       tryPlay(shareVideoRef.current);
+      tryPlay(remoteCamRef.current);
       void voiceAudioRef.current?.play().catch(() => {});
     };
     document.addEventListener('pointerdown', arm);
     return () => document.removeEventListener('pointerdown', arm);
   }, []);
 
-  // 片源变化：直链直接加载；本地文件等各自选
+  // 片源变化：直链直接加载；.m3u8 走 hls.js（Safari 原生 HLS 回退）；本地文件等各自选
   useEffect(() => {
     const v = videoRef.current;
     const src = state.src;
     if (!v || !src) return;
-    if (src.kind === 'url' && src.url && v.src !== src.url) {
-      v.src = src.url;
-      v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+    if (src.kind === 'url' && src.url) {
+      const isHls = /\.m3u8(\?|#|$)/i.test(src.url);
+      if (isHls) {
+        // 重新选片时销毁旧实例，避免重复挂载
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        if (Hls.isSupported()) {
+          const hls = new Hls();
+          hlsRef.current = hls;
+          hls.loadSource(src.url);
+          hls.attachMedia(v);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+          });
+        } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari/iPhone 原生支持 HLS，直接当直链放
+          v.src = src.url;
+          v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+        } else {
+          window.alert('这个浏览器不支持 m3u8 播放');
+        }
+        return;
+      }
+      // 普通直链
+      if (v.src !== src.url) {
+        v.src = src.url;
+        v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
+      }
     }
   }, [state.src, applyPendingOnce]);
+
+  // 卸载时销毁 hls 实例
+  useEffect(() => () => void hlsRef.current?.destroy(), []);
 
   /* ---------- 片源/共享 ---------- */
 
@@ -161,6 +223,7 @@ export function Room({ room }: { room: RoomApi }) {
         .catch(() => {});
     tryPlay(videoRef.current);
     tryPlay(shareVideoRef.current);
+    tryPlay(remoteCamRef.current);
   };
 
   return (
@@ -181,7 +244,15 @@ export function Room({ room }: { room: RoomApi }) {
         shareActive={state.shareActive}
         pickedTitle={pickedTitle}
         onPickLocal={onFollowerLocalFile}
-      />      <Controls
+        barrages={barrages}
+      />
+      {/* 音视频连麦：远端摄像头小窗（有视频轨才显示） */}
+      {remoteCamActive && (
+        <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay muted={false} />
+      )}
+      {/* 本地摄像头预览（开摄像头时显示，静音防回声） */}
+      {state.camOn && <video ref={localCamRef} id="localCam" playsInline autoPlay muted />}
+      <Controls
         stageRef={stageRef}
         videoRef={videoRef}
         state={state}
@@ -190,7 +261,14 @@ export function Room({ room }: { room: RoomApi }) {
         onTogglePlay={onTogglePlay}
         onToggleChat={() => setChatOpen((v) => !v)}
       />
-      <ChatDrawer open={chatOpen} chat={state.chat} onSend={actions.chat} onClose={() => setChatOpen(false)} />
+      <ChatDrawer
+        open={chatOpen}
+        chat={state.chat}
+        onSend={actions.chat}
+        onClose={() => setChatOpen(false)}
+        barrageOn={state.barrageOn}
+        onToggleBarrage={actions.toggleBarrage}
+      />
     </div>
   );
 }

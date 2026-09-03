@@ -205,5 +205,101 @@ host.waitFor('v-ice', (m) => {
 guest.waitFor('v-ice', (m) => {
   assert.equal(m.candidate.candidate, 'voice-ice-2');
   console.log('OK 屋主连麦 ICE 定向送达观众');
-  host.send({ t: 'share-stop' });
+  // —— 摄像头（音视频连麦） ——
+  guest.send({ t: 'cam', on: true });
 });
+
+host.waitFor(
+  'cam',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, true);
+    console.log('OK 观众开摄像头状态到达屋主');
+    host.send({ t: 'cam', on: true });
+  },
+  (m) => m.t === 'cam' && m.cid === guestCid,
+);
+
+guest.waitFor(
+  'cam',
+  (m) => {
+    assert.equal(m.cid, hostCid);
+    assert.equal(m.on, true);
+    console.log('OK 屋主开摄像头状态到达观众');
+    // 摄像头复用 v-* 信令通道，无需新信令
+    host.send({ t: 'v-offer', to: guestCid, sdp: 'fake-cam-offer' });
+  },
+  (m) => m.t === 'cam' && m.cid === hostCid,
+);
+
+guest.waitFor('v-offer', (m) => {
+  assert.equal(m.sdp, 'fake-cam-offer');
+  console.log('OK 摄像头连接复用连麦 offer 通道');
+  guest.send({ t: 'v-answer', sdp: 'fake-cam-answer' });
+});
+
+host.waitFor('v-answer', (m) => {
+  assert.equal(m.from, guestCid);
+  console.log('OK 摄像头 answer 路由回屋主');
+  guest.send({ t: 'v-ice', to: 'host', candidate: { candidate: 'cam-ice-1' } });
+});
+
+host.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'cam-ice-1');
+  console.log('OK 观众摄像头 ICE 到达屋主');
+  host.send({ t: 'v-ice', to: guestCid, candidate: { candidate: 'cam-ice-2' } });
+});
+
+guest.waitFor('v-ice', (m) => {
+  assert.equal(m.candidate.candidate, 'cam-ice-2');
+  console.log('OK 屋主摄像头 ICE 定向送达观众');
+  // —— 静音 ——
+  guest.send({ t: 'mute', on: true });
+});
+
+host.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, true);
+    console.log('OK 观众静音状态到达屋主');
+    host.send({ t: 'mute', on: true });
+  },
+  (m) => m.t === 'mute' && m.cid === guestCid,
+);
+
+guest.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, hostCid);
+    assert.equal(m.on, true);
+    console.log('OK 屋主静音状态到达观众');
+    guest.send({ t: 'mute', on: false });
+  },
+  (m) => m.t === 'mute' && m.cid === hostCid,
+);
+
+host.waitFor(
+  'mute',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, false);
+    console.log('OK 观众取消静音到达屋主');
+    // 关连麦应复位静音（服务端在 voice off 时清 muted）
+    guest.send({ t: 'voice', on: false });
+  },
+  (m) => m.t === 'mute' && m.cid === guestCid && m.on === false,
+);
+
+// 注意：这里必须带 match——服务端广播会把 voice 回传给发送者自己（host 也会
+// 收到自己开麦的广播），无 match 的 voice step 会被 host 自己开麦的广播提前消费。
+host.waitFor(
+  'voice',
+  (m) => {
+    assert.equal(m.cid, guestCid);
+    assert.equal(m.on, false);
+    console.log('OK 观众挂断连麦');
+    host.send({ t: 'share-stop' });
+  },
+  (m) => m.t === 'voice' && m.cid === guestCid && m.on === false,
+);

@@ -7,6 +7,8 @@ export interface Conn {
   name: string;
   room: Room | null;
   voice: boolean; // 是否在麦上
+  cam: boolean; // 是否开着摄像头
+  muted: boolean; // 是否静音
 }
 
 export interface Room {
@@ -21,7 +23,7 @@ export interface Room {
 }
 
 export function newConn(ws: WsSocket): Conn {
-  return { ws, cid: 0, name: '', room: null, voice: false };
+  return { ws, cid: 0, name: '', room: null, voice: false, cam: false, muted: false };
 }
 
 export function send(conn: Conn, msg: ServerMsg): void {
@@ -35,8 +37,18 @@ export function broadcast(room: Room, msg: ServerMsg, except?: Conn): void {
 }
 
 export function membersOf(room: Room): Member[] {
-  const m: Member[] = [{ cid: room.host.cid, name: room.host.name, host: true, voice: room.host.voice }];
-  for (const c of room.clients) m.push({ cid: c.cid, name: c.name, host: false, voice: c.voice });
+  const m: Member[] = [
+    {
+      cid: room.host.cid,
+      name: room.host.name,
+      host: true,
+      voice: room.host.voice,
+      cam: room.host.cam,
+      muted: room.host.muted,
+    },
+  ];
+  for (const c of room.clients)
+    m.push({ cid: c.cid, name: c.name, host: false, voice: c.voice, cam: c.cam, muted: c.muted });
   return m;
 }
 
@@ -163,7 +175,19 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
     }
     case 'voice': {
       conn.voice = !!m.on;
+      if (!m.on) conn.muted = false; // 挂断连麦时复位静音
       broadcast(room, { t: 'voice', cid: conn.cid, on: conn.voice });
+      return;
+    }
+    case 'cam': {
+      conn.cam = !!m.on;
+      if (!m.on) conn.muted = false; // 关摄像头时复位静音
+      broadcast(room, { t: 'cam', cid: conn.cid, on: conn.cam });
+      return;
+    }
+    case 'mute': {
+      conn.muted = !!m.on;
+      broadcast(room, { t: 'mute', cid: conn.cid, on: conn.muted });
       return;
     }
     case 'v-offer': {

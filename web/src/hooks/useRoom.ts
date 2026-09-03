@@ -8,7 +8,7 @@ import type {
   SyncState,
 } from '../../../shared/protocol';
 import { Emitter } from '../lib/emitter';
-import { HostSharer, ViewerShare, VoiceLink } from '../lib/webrtc';
+import { HostSharer, ViewerShare, VoiceLink, type ShareQuality } from '../lib/webrtc';
 
 export interface ChatItem {
   from: string;
@@ -29,10 +29,14 @@ export interface RoomState {
   chat: ChatItem[];
   toast: string | null;
   lobbyErr: string;
-  sharing: boolean; // 本端（屋主）正在推流
-  shareActive: boolean; // 房间处于共享模式（观众据此切换画面）
-  hasRemoteStream: boolean; // 观众已收到画面流
-  voiceOn: boolean; // 本端在麦上
+  sharing: boolean;
+  shareActive: boolean;
+  hasRemoteStream: boolean;
+  voiceOn: boolean;
+  camOn: boolean;
+  micMuted: boolean;
+  barrageOn: boolean;
+  quality: ShareQuality;
 }
 
 export interface RoomEvents {
@@ -40,6 +44,8 @@ export interface RoomEvents {
   'share-stream': MediaStream;
   'share-ended': void;
   'voice-stream': MediaStream;
+  'local-video': MediaStream | null;
+  barrage: { text: string; mine: boolean };
 }
 
 const INITIAL: RoomState = {
@@ -59,10 +65,21 @@ const INITIAL: RoomState = {
   shareActive: false,
   hasRemoteStream: false,
   voiceOn: false,
+  camOn: false,
+  micMuted: false,
+  barrageOn: false,
+  quality: 'hd',
 };
 
+const QUALITY_KEY = 'yiqikan-share-quality';
+
+function readQuality(): ShareQuality {
+  const v = localStorage.getItem(QUALITY_KEY);
+  return v === 'auto' || v === 'hd' || v === 'uhd' ? v : 'hd';
+}
+
 export function useRoom() {
-  const [state, setState] = useState<RoomState>(INITIAL);
+  const [state, setState] = useState<RoomState>({ ...INITIAL, quality: readQuality() });
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -108,7 +125,6 @@ export function useRoom() {
     voicePcRef.current = null;
   }, []);
 
-  /** 双方都在麦上时，屋主负责发起音频连接 */
   const maybeStartVoice = useCallback(
     (forceHost?: boolean) => {
       const s = stateRef.current;
@@ -125,7 +141,6 @@ export function useRoom() {
     [events, send],
   );
 
-  // 状态更新是异步的，不能只依赖点按连麦时的旧快照；双方都开麦后由屋主自动发起连接。
   useEffect(() => {
     maybeStartVoice();
   }, [maybeStartVoice, state.isHost, state.members, state.voiceOn]);
@@ -133,13 +148,12 @@ export function useRoom() {
   const startShare = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 15 } },
+        video: { frameRate: { ideal: 60 } },
         audio: true,
       });
-      const sharer = new HostSharer(stream, send);
+      const sharer = new HostSharer(stream, send, stateRef.current.quality);
       stream.getVideoTracks()[0]?.addEventListener('ended', () => stopShare());
       sharerRef.current = sharer;
-      // 已在房间的观众逐个推流
       for (const m of stateRef.current.members) {
         if (!m.host) await sharer.addViewer(m.cid);
       }
@@ -150,6 +164,14 @@ export function useRoom() {
       toast('没有选择屏幕，或浏览器不允许采集');
     }
   }, [send, set, stopShare, toast]);
+
+  const setQuality = useCallback(
+    (q: ShareQuality) => {
+      localStorage.setItem(QUALITY_KEY, q);
+      set({ quality: q });
+    },
+    [set],
+  );
 
   const handle = useCallback(
     (m: ServerMsg) => {
@@ -190,14 +212,12 @@ export function useRoom() {
           hangupVoice();
           set({ isHost: true, hasRemoteStream: false, sharing: false });
           toast('你成了新屋主');
-          // 若双方麦克风都还开着，以新屋主身份重建连麦
           maybeStartVoice(true);
           break;
         case 'member': {
           set({ members: m.members });
           if (m.action === 'join') {
             toast(`${m.name} 进来了`);
-            // 新观众中途加入且本端正在共享 → 给TA补一路推流
             if (s.sharing && sharerRef.current && m.cid) void sharerRef.current.addViewer(m.cid);
           } else if (m.action === 'leave') {
             toast(`${m.name} 走开了`);
@@ -225,6 +245,7 @@ export function useRoom() {
           break;
         case 'chat':
           set({ chat: [...s.chat.slice(-199), { from: m.from, text: m.text, mine: false }] });
+          events.emit('barrage', { text: m.text, mine: false });
           break;
         case 'poke':
           navigator.vibrate?.([120, 60, 120]);
@@ -232,8 +253,9 @@ export function useRoom() {
           set({ chat: [...s.chat.slice(-199), { from: '戳一戳', text: '戳了戳你，快看片！', mine: false }] });
           break;
         case 'voice': {
-          // 更新成员在麦状态；自己的回显只刷新数据不弹提示
-          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, voice: m.on } : x));
+          const members = s.members.map((x) =>
+            x.cid === m.cid ? { ...x, voice: m.on, muted: m.on ? x.muted : false } : x,
+          );
           set({ members });
           if (m.cid === s.myCid) break;
           const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
@@ -246,8 +268,30 @@ export function useRoom() {
           }
           break;
         }
+        case 'cam': {
+          const members = s.members.map((x) =>
+            x.cid === m.cid ? { ...x, cam: m.on, muted: m.on ? x.muted : false } : x,
+          );
+          set({ members });
+          if (m.cid === s.myCid) break;
+          const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
+          if (m.on) {
+            toast(`${who} 开了摄像头${s.camOn ? '' : '，点 📷 一起看脸'}`);
+            maybeStartVoice();
+          } else {
+            toast(`${who} 关了摄像头`);
+          }
+          break;
+        }
+        case 'mute': {
+          const members = s.members.map((x) => (x.cid === m.cid ? { ...x, muted: m.on } : x));
+          set({ members });
+          if (m.cid === s.myCid) break;
+          const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
+          toast(m.on ? `${who} 静音了` : `${who} 取消静音`);
+          break;
+        }
         case 'v-offer': {
-          // 观众：收到屋主的连麦邀约
           voicePcRef.current?.close();
           const link = new VoiceLink(localVoiceRef.current, send, 'host', (stream) =>
             events.emit('voice-stream', stream),
@@ -269,7 +313,6 @@ export function useRoom() {
           toast(m.msg);
           break;
         case 'rtc-offer': {
-          // 观众：收到屋主的屏幕推流邀约
           viewerRef.current?.close();
           const v = new ViewerShare(send, (stream) => {
             events.emit('share-stream', stream);
@@ -348,8 +391,9 @@ export function useRoom() {
       const s = stateRef.current;
       send({ t: 'chat', text });
       set({ chat: [...s.chat.slice(-199), { from: `${s.myName}（我）`, text, mine: true }] });
+      events.emit('barrage', { text, mine: true });
     },
-    [send, set],
+    [send, set, events],
   );
 
   const poke = useCallback(() => {
@@ -358,27 +402,85 @@ export function useRoom() {
     toast('戳了戳对方');
   }, [send, toast]);
 
+  const stopLocalMedia = useCallback(() => {
+    localVoiceRef.current?.getTracks().forEach((t) => t.stop());
+    localVoiceRef.current = null;
+    events.emit('local-video', null);
+  }, [events]);
+
+  // 采集统一开启降噪/回声消除/自动增益（浏览器不支持的约束会被忽略，安全）
+  const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+    noiseSuppression: true,
+    echoCancellation: true,
+    autoGainControl: true,
+  };
+
   const toggleVoice = useCallback(async () => {
     if (stateRef.current.voiceOn) {
-      // 挂断：关麦、断连接、广播状态
-      localVoiceRef.current?.getTracks().forEach((t) => t.stop());
-      localVoiceRef.current = null;
+      stopLocalMedia();
       hangupVoice();
       send({ t: 'voice', on: false });
-      set({ voiceOn: false });
+      set({ voiceOn: false, micMuted: false });
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
       localVoiceRef.current = stream;
       send({ t: 'voice', on: true });
       set({ voiceOn: true });
-      toast('连麦已开，建议戴耳机防啸叫');
+      toast('连麦已开（降噪已开启），建议戴耳机防啸叫');
       maybeStartVoice();
     } catch {
       toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
     }
-  }, [hangupVoice, maybeStartVoice, send, set, toast]);
+  }, [hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
+
+  const toggleCamera = useCallback(async () => {
+    if (stateRef.current.camOn) {
+      stopLocalMedia();
+      hangupVoice();
+      send({ t: 'voice', on: false });
+      send({ t: 'cam', on: false });
+      set({ voiceOn: false, camOn: false, micMuted: false });
+      toast('摄像头已关');
+      return;
+    }
+    try {
+      // 音视频一起开：看脸自然要说话，一条流两个轨一起走；音频同样带降噪
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: AUDIO_CONSTRAINTS,
+        video: true,
+      });
+      localVoiceRef.current = stream;
+      events.emit('local-video', stream);
+      send({ t: 'voice', on: true });
+      send({ t: 'cam', on: true });
+      set({ voiceOn: true, camOn: true });
+      toast('摄像头已开（降噪已开启），对方能看到你了');
+      maybeStartVoice();
+    } catch {
+      toast('拿不到摄像头/麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
+    }
+  }, [events, hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
+
+  // 静音键：本地静音（track.enabled 置 false，连接不断），广播让对端看到状态
+  const toggleMute = useCallback(() => {
+    const s = stateRef.current;
+    if (!s.voiceOn && !s.camOn) {
+      toast('先开连麦或摄像头再静音');
+      return;
+    }
+    const next = !s.micMuted;
+    for (const t of localVoiceRef.current?.getAudioTracks() ?? []) t.enabled = !next;
+    send({ t: 'mute', on: next });
+    set({ micMuted: next });
+    toast(next ? '已静音' : '已取消静音');
+  }, [send, set, toast]);
+
+  // 弹幕开关：开启后聊天消息会在影片画面上飘过（复用 chat 通道，只影响显示）
+  const toggleBarrage = useCallback(() => {
+    set({ barrageOn: !stateRef.current.barrageOn });
+  }, [set]);
 
   useEffect(() => {
     return () => {
@@ -400,7 +502,11 @@ export function useRoom() {
       setSourceLocal,
       startShare,
       stopShare,
+      setQuality,
       toggleVoice,
+      toggleCamera,
+      toggleMute,
+      toggleBarrage,
       chat,
       poke,
       send,
