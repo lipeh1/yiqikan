@@ -75,7 +75,13 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
         />
-        <button>发送</button>
+        <button type="submit" aria-label="发送" title="发送">
+          {/* 纸飞机：与控件图标同一 1.8 描边体系 */}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m22 2-7 20-4-9-9-4Z" />
+            <path d="M22 2 11 13" />
+          </svg>
+        </button>
       </form>
     </aside>
   );

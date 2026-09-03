@@ -105,6 +105,92 @@ const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = 
   { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
 ];
 
+/**
+ * 自绘画质下拉：原生 select 的弹层不吃暗色主题（Windows 白底原生框），
+ * 换成与整体同语言的浮层。键盘可达：Enter/↓ 展开，↑↓ 移动，Esc 关闭。
+ */
+function QualityMenu({
+  value,
+  onChange,
+}: {
+  value: ShareQuality;
+  onChange: (q: ShareQuality) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const current = QUALITY_OPTIONS.find((q) => q.value === value) ?? QUALITY_OPTIONS[1];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // ↑↓ 在选项间移动焦点（选项本身是 button，Enter 天然可选中）
+  const onMenuKey = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const opts = [...rootRef.current!.querySelectorAll<HTMLButtonElement>('.quality-option')];
+    const i = opts.indexOf(document.activeElement as HTMLButtonElement);
+    const next = e.key === 'ArrowDown' ? (i + 1) % opts.length : (i - 1 + opts.length) % opts.length;
+    opts[next]?.focus();
+  };
+
+  return (
+    <div className="quality-menu" ref={rootRef} onKeyDown={onMenuKey}>
+      <button
+        type="button"
+        className="quality-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if ((e.key === 'ArrowDown' || e.key === 'Enter') && !open) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+        title="屏幕共享画质：中继/网络差会自动降档"
+      >
+        <span>画质 · {current.label}</span>
+        <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="quality-pop" role="listbox" aria-label="屏幕共享画质">
+          {QUALITY_OPTIONS.map((q) => (
+            <button
+              key={q.value}
+              type="button"
+              role="option"
+              aria-selected={q.value === value}
+              className="quality-option"
+              onClick={() => {
+                onChange(q.value);
+                setOpen(false);
+              }}
+            >
+              <span>{q.label}</span>
+              <span className="q-hint">{q.hint}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Controls({
   stageRef,
   videoRef,
@@ -216,24 +302,7 @@ export function Controls({
           </button>
         )}
         {state.isHost && (
-          <label
-            className="quality-wrap"
-            title="屏幕共享画质：选超清看片最清晰；中继/网络差会自动降档"
-          >
-            <span>画质</span>
-            <select
-              className="quality-select"
-              value={state.quality}
-              onChange={(e) => actions.setQuality(e.target.value as ShareQuality)}
-              aria-label="屏幕共享画质"
-            >
-              {QUALITY_OPTIONS.map((q) => (
-                <option key={q.value} value={q.value} title={q.hint}>
-                  {q.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <QualityMenu value={state.quality} onChange={actions.setQuality} />
         )}
         <button
           className={`control-button${state.voiceOn ? ' is-active' : ''}`}
