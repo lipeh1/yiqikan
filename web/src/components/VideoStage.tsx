@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import type { Mode, SourceState } from '../../../shared/protocol';
 
 export interface BarrageItem {
@@ -24,6 +24,8 @@ interface Props {
   pickedTitle: string | null;
   onPickLocal: (file: File) => void;
   barrages: BarrageItem[];
+  remoteCamStream: MediaStream | null;
+  localCamStream: MediaStream | null;
 }
 
 export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
@@ -40,11 +42,30 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
     pickedTitle,
     onPickLocal,
     barrages,
+    remoteCamStream,
+    localCamStream,
   },
   ref,
 ) {
   const stageDivRef = useRef<HTMLDivElement>(null);
+  const remoteCamRef = useRef<HTMLVideoElement>(null);
+  const localCamRef = useRef<HTMLVideoElement>(null);
   useImperativeHandle(ref, () => ({ el: stageDivRef.current }), []);
+
+  // 摄像头小窗挂流放在 effect 里：元素渲染后再生效，避免"事件先到、元素未挂"的黑屏竞态
+  useEffect(() => {
+    const v = remoteCamRef.current;
+    if (!v || !remoteCamStream) return;
+    v.srcObject = remoteCamStream;
+    v.play().catch(() => {});
+  }, [remoteCamStream]);
+
+  useEffect(() => {
+    const v = localCamRef.current;
+    if (!v || !localCamStream) return;
+    v.srcObject = localCamStream;
+    v.play().catch(() => {});
+  }, [localCamStream]);
 
   const sharing = mode === 'share' && shareActive;
 
@@ -125,6 +146,10 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
           ))}
         </div>
       )}
+
+      {/* 音视频连麦小窗：悬浮在影片画面上（远端右下、本地预览左下镜像） */}
+      {remoteCamStream && <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay />}
+      {localCamStream && <video ref={localCamRef} id="localCam" playsInline autoPlay muted />}
     </div>
   );
 });

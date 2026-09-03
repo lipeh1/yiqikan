@@ -13,8 +13,6 @@ export function Room({ room }: { room: RoomApi }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shareVideoRef = useRef<HTMLVideoElement>(null);
   const voiceAudioRef = useRef<HTMLAudioElement>(null);
-  const localCamRef = useRef<HTMLVideoElement>(null);
-  const remoteCamRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<StageRef>(null);
   const hlsRef = useRef<Hls | null>(null);
 
@@ -22,7 +20,8 @@ export function Room({ room }: { room: RoomApi }) {
   const [showUnlock, setShowUnlock] = useState(false);
   const [pickedTitle, setPickedTitle] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [remoteCamActive, setRemoteCamActive] = useState(false);
+  const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
+  const [localCamStream, setLocalCamStream] = useState<MediaStream | null>(null);
   const [barrages, setBarrages] = useState<BarrageItem[]>([]);
   const barrageIdRef = useRef(0);
 
@@ -72,20 +71,10 @@ export function Room({ room }: { room: RoomApi }) {
           a.srcObject = s;
           a.play().catch(() => setShowUnlock(true));
         }
-        // 音视频连麦：远端流可能带视频轨，显示到摄像头小窗
-        const hasVideo = s.getVideoTracks().length > 0;
-        setRemoteCamActive(hasVideo);
-        if (hasVideo && remoteCamRef.current) {
-          remoteCamRef.current.srcObject = s;
-          remoteCamRef.current.play().catch(() => setShowUnlock(true));
-        }
+        // 音视频连麦：远端流带视频轨时显示摄像头小窗，纯语音时收起
+        setRemoteCamStream(s.getVideoTracks().length > 0 ? s : null);
       }),
-      events.on('local-video', (s) => {
-        const v = localCamRef.current;
-        if (!v) return;
-        v.srcObject = s;
-        if (s) v.play().catch(() => {});
-      }),
+      events.on('local-video', (s) => setLocalCamStream(s)),
       events.on('barrage', ({ text, mine }) => {
         // 弹幕开关没开就不飘（聊天记录仍正常）
         if (!stateRef.current.barrageOn) return;
@@ -143,7 +132,6 @@ export function Room({ room }: { room: RoomApi }) {
       };
       tryPlay(videoRef.current);
       tryPlay(shareVideoRef.current);
-      tryPlay(remoteCamRef.current);
       void voiceAudioRef.current?.play().catch(() => {});
     };
     document.addEventListener('pointerdown', arm);
@@ -223,7 +211,7 @@ export function Room({ room }: { room: RoomApi }) {
         .catch(() => {});
     tryPlay(videoRef.current);
     tryPlay(shareVideoRef.current);
-    tryPlay(remoteCamRef.current);
+    void voiceAudioRef.current?.play().catch(() => {});
   };
 
   return (
@@ -245,13 +233,9 @@ export function Room({ room }: { room: RoomApi }) {
         pickedTitle={pickedTitle}
         onPickLocal={onFollowerLocalFile}
         barrages={barrages}
+        remoteCamStream={remoteCamStream}
+        localCamStream={localCamStream}
       />
-      {/* 音视频连麦：远端摄像头小窗（有视频轨才显示） */}
-      {remoteCamActive && (
-        <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay muted={false} />
-      )}
-      {/* 本地摄像头预览（开摄像头时显示，静音防回声） */}
-      {state.camOn && <video ref={localCamRef} id="localCam" playsInline autoPlay muted />}
       <Controls
         stageRef={stageRef}
         videoRef={videoRef}
