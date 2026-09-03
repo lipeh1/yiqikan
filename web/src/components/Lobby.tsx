@@ -17,12 +17,17 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
   }, []);
 
   const nick = () => name.trim() || '我';
+  // 房间码即时净化：只留字母数字并大写，凑不满 4 位时加入按钮保持禁用
+  const sanitizeCode = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+  const codeReady = code.length === 4;
 
   return (
     <main id="lobby" className="screen lobby-screen">
       <div className="lobby-brand rise" style={{ '--d': 0 } as React.CSSProperties} aria-label="一起看二人放映室">
         <span className="brand-mark" aria-hidden="true">
-          02
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+            <path d="M8 5.5 18 12 8 18.5z" />
+          </svg>
         </span>
         <span className="brand-name">一起看</span>
         <span className="brand-note">二人放映室</span>
@@ -69,12 +74,9 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
           <div className="core">
             <div className="entry-card-head">
               <div>
-                <span className="entry-kicker">READY WHEN YOU ARE</span>
+                <span className="entry-kicker">ready when you are</span>
                 <h2 id="entry-title">进入放映室</h2>
               </div>
-              <span className="entry-index" aria-hidden="true">
-                01
-              </span>
             </div>
 
             <div className="entry-fields">
@@ -104,18 +106,19 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
               <label className="field-label" htmlFor="room-code">
                 房间码
               </label>
-              <div className="row">
-                <input
-                  id="room-code"
-                  placeholder="四位字母或数字"
-                  maxLength={4}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-                <button className="primary join-button" onClick={() => onJoin(code, nick())}>
-                  加入
-                </button>
-              </div>
+            <div className="row">
+              <input
+                id="room-code"
+                placeholder="四位字母或数字"
+                maxLength={4}
+                value={code}
+                onChange={(e) => setCode(sanitizeCode(e.target.value))}
+                aria-invalid={code.length > 0 && !codeReady}
+              />
+              <button className="primary join-button" disabled={!codeReady} onClick={() => onJoin(code, nick())}>
+                加入
+              </button>
+            </div>
             </div>
 
             <p className="err" role="alert">

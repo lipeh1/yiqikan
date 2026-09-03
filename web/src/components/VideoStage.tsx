@@ -26,12 +26,13 @@ interface Props {
   barrages: BarrageItem[];
   remoteCamStream: MediaStream | null;
   localCamStream: MediaStream | null;
+  loading: boolean;
 }
 
-/** 空场胶片图标：细线、圆角矩形片盘 */
+/** 空场胶片图标：与控件图标同一描边体系（1.8） */
 function FilmGlyph() {
   return (
-    <svg className="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3.5" y="5" width="17" height="14" rx="3" />
       <path d="M8 5v14M16 5v14M3.5 9.5H8M3.5 14.5H8M16 9.5h4.5M16 14.5h4.5" />
     </svg>
@@ -54,6 +55,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
     barrages,
     remoteCamStream,
     localCamStream,
+    loading,
   },
   ref,
 ) {
@@ -143,6 +145,16 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
           <button className="primary unlock-button" onClick={onUnlock}>
             点一下开始接收
           </button>
+        </div>
+      )}
+
+      {/* 正片加载中间态：设置片源后到可播放前的过渡，弱网不再黑幕 */}
+      {loading && !sharing && (
+        <div className="stage-loading" aria-live="polite">
+          <div>
+            <div className="spin" />
+            正在载入影片
+          </div>
         </div>
       )}
 

@@ -36,7 +36,7 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
     <aside id="chatDrawer" className={open ? '' : 'hidden'} aria-label="聊天">
       <div className="chat-head">
         <div>
-          <span className="chat-kicker">LIVE NOTES</span>
+          <span className="chat-kicker">live notes</span>
           <strong>聊天</strong>
         </div>
         <div className="chat-head-actions">

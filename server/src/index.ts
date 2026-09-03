@@ -41,8 +41,15 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         return res.end('<meta charset="utf-8"><body style="font-family:sans-serif;padding:2em">前端还没构建：先 <code>npm run build</code>，或开发模式 <code>npm run dev</code>。</body>');
       }
-      res.writeHead(404);
-      return res.end('Not Found');
+      // 品牌化 404：与前端同一深色调
+      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 · 一起看</title><style>
+        body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#0d1512;color:#f3f0e7;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+        .box{text-align:center;padding:2rem}
+        b{display:block;font-size:64px;color:#e8825a;margin-bottom:.5rem}
+        p{color:#a3b0aa;font-size:14px;margin:.5rem 0 1.5rem}
+        a{color:#f4a07c;text-decoration:none;border:1px solid rgba(232,130,90,.5);padding:10px 22px;border-radius:12px}
+      </style></head><body><div class="box"><b>404</b><p>这一卷胶片不存在，回放映室再找找。</p><a href="/">回到大厅</a></div></body></html>`);
     }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });
     res.end(data);

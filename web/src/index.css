@@ -1,8 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700;900&display=swap');
+/* 自托管字体（子集化，~44KB 总量）：国内访问 Google Fonts CDN 不可达，必须走自己服务器。
+   衬线只覆盖固定文案，改了界面大字要重跑 scripts/build-fonts.mjs；正文用系统字体栈。 */
+@font-face {
+  font-family: 'Yiqikan Serif';
+  src: url('./assets/fonts/serif-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Yiqikan Serif';
+  src: url('./assets/fonts/serif-900.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Yiqikan Mono';
+  src: url('./assets/fonts/mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Yiqikan Mono';
+  src: url('./assets/fonts/mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
 
 /* ============================================================
    深夜放映室 · 视觉系统
-   衬线大标题（Noto Serif SC）+ 单一朱砂强调 + 双层嵌套容器
+   衬线大标题（子集 Noto Serif SC）+ 单一朱砂强调 + 双层嵌套容器
    动效只用 transform/opacity，缓动统一自定义曲线
    ============================================================ */
 
@@ -34,7 +59,7 @@
 html, body, #root { min-height: 100%; }
 
 body {
-  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
@@ -71,6 +96,21 @@ button { cursor: pointer; }
 button:disabled { opacity: 0.38; cursor: default; }
 input, select { outline: none; }
 .hidden { display: none !important; }
+
+/* 键盘跳转链：默认隐藏，聚焦时浮出 */
+.skip-link {
+  position: fixed; top: 10px; left: 10px;
+  z-index: 80;
+  padding: 9px 15px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px; font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.4s var(--ease-spring);
+}
+.skip-link:focus-visible { transform: translateY(0); }
 
 /* 键盘可达性：可见焦点环 */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
@@ -121,10 +161,10 @@ input, select { outline: none; }
   border-radius: 9px;
   background: rgba(232, 130, 90, 0.12);
   color: var(--accent-bright);
-  font: 500 11px/1 'DM Mono', monospace;
+  font: 500 11px/1 'Yiqikan Mono', monospace;
 }
-.brand-name { font-family: 'Noto Serif SC', serif; font-size: 16px; font-weight: 700; letter-spacing: 0.14em; }
-.brand-note { margin-left: 2px; color: var(--muted-dark); font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.brand-name { font-family: 'Yiqikan Serif', 'Noto Serif SC', 'Songti SC', serif; font-size: 16px; font-weight: 700; letter-spacing: 0.14em; }
+.brand-note { margin-left: 2px; color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
 
 .lobby-layout {
   display: grid;
@@ -145,7 +185,7 @@ input, select { outline: none; }
   border: 1px solid var(--line-strong);
   background: rgba(255, 255, 255, 0.025);
   color: var(--muted);
-  font: 500 10px/1 'DM Mono', monospace;
+  font: 500 10px/1 'Yiqikan Mono', monospace;
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
@@ -154,7 +194,7 @@ input, select { outline: none; }
 .lobby-intro { max-width: 560px; }
 .lobby-intro h1 {
   margin-top: 26px;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Yiqikan Serif', 'Noto Serif SC', 'Songti SC', serif;
   font-size: clamp(44px, 6vw, 78px);
   line-height: 1.12;
   font-weight: 900;
@@ -166,7 +206,7 @@ input, select { outline: none; }
 
 .lobby-notes { display: grid; gap: 22px; margin-top: 68px; list-style: none; }
 .lobby-notes li { display: flex; gap: 18px; align-items: flex-start; }
-.lobby-notes li > span { color: var(--accent); font: 500 12px/1.4 'DM Mono', monospace; padding-top: 2px; }
+.lobby-notes li > span { color: var(--accent); font: 500 12px/1.4 'Yiqikan Mono', monospace; padding-top: 2px; }
 .lobby-notes p { display: grid; gap: 4px; }
 .lobby-notes strong { color: var(--text); font-size: 13px; font-weight: 600; }
 .lobby-notes small { color: var(--muted-dark); font-size: 12px; }
@@ -176,9 +216,9 @@ input, select { outline: none; }
 .entry-card .core { padding: 30px 30px 24px; }
 
 .entry-card-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
-.entry-kicker, .chat-kicker { display: block; color: var(--accent); font: 500 10px/1 'DM Mono', monospace; letter-spacing: 0.13em; }
-.entry-card h2 { margin-top: 12px; font-family: 'Noto Serif SC', serif; font-size: 24px; font-weight: 700; }
-.entry-index { color: var(--muted-dark); font: 500 12px/1 'DM Mono', monospace; }
+.entry-kicker, .chat-kicker { display: block; color: var(--accent); font: 500 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.13em; text-transform: uppercase; }
+.entry-card h2 { margin-top: 12px; font-family: 'Yiqikan Serif', 'Noto Serif SC', 'Songti SC', serif; font-size: 24px; font-weight: 700; }
+.entry-index { color: var(--muted-dark); font: 500 12px/1 'Yiqikan Mono', monospace; }
 
 .entry-fields, .join-fields { display: grid; gap: 10px; margin-top: 22px; }
 .field-label { color: var(--muted); font-size: 12px; margin-bottom: -3px; }
@@ -208,7 +248,7 @@ input, select { outline: none; }
 }
 .entry-primary:hover .cta-arrow { transform: translate(2px, -2px) scale(1.07); }
 
-.divider { display: flex; align-items: center; gap: 15px; margin-top: 26px; color: var(--muted-dark); font: 400 10px/1 'DM Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.divider { display: flex; align-items: center; gap: 15px; margin-top: 26px; color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
 .divider::before, .divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 
 .row { display: flex; gap: 8px; min-width: 0; }
@@ -229,7 +269,7 @@ input, select { outline: none; }
 }
 .room-session { display: flex; align-items: center; gap: 11px; }
 .room-label { color: var(--muted-dark); font-size: 12px; }
-.room-session b { color: var(--text); font: 500 14px/1 'DM Mono', monospace; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
+.room-session b { color: var(--text); font: 500 14px/1 'Yiqikan Mono', monospace; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
 
 .mini {
   border: 1px solid var(--line-strong); border-radius: 10px;
@@ -244,7 +284,7 @@ input, select { outline: none; }
 .member { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .member-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px rgba(168, 207, 174, 0.5); }
 .member-dot-host { background: var(--accent); box-shadow: 0 0 8px rgba(232, 130, 90, 0.55); }
-.member-self, .member-role, .member-voice { color: var(--muted-dark); font: 400 9px/1 'DM Mono', monospace; }
+.member-self, .member-role, .member-voice { color: var(--muted-dark); font: 400 9px/1 'Yiqikan Mono', monospace; }
 
 .room-status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(168, 207, 174, 0.1); }
@@ -285,6 +325,27 @@ input, select { outline: none; }
 .filebtn:hover { background: rgba(232, 130, 90, 0.14); }
 .filebtn:active { transform: scale(0.97); }
 
+/* 正片加载中间态：弱网下不再是黑幕一片 */
+.stage-loading {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: rgba(4, 8, 10, 0.55);
+  backdrop-filter: blur(3px);
+  color: var(--muted);
+  font: 500 11px/1 'Yiqikan Mono', monospace;
+  letter-spacing: 0.14em;
+  z-index: 6;
+}
+.stage-loading > div { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.stage-loading .spin {
+  width: 22px; height: 22px; margin-bottom: 12px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .share-tag {
   position: absolute; top: 14px; left: 14px;
   display: inline-flex; align-items: center; gap: 7px;
@@ -294,7 +355,7 @@ input, select { outline: none; }
   background: rgba(10, 16, 14, 0.82);
   backdrop-filter: blur(8px);
   color: var(--accent-bright);
-  font: 500 10px/1 'DM Mono', monospace; letter-spacing: 0.06em;
+  font: 500 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.06em;
 }
 .share-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -331,9 +392,9 @@ input, select { outline: none; }
 
 /* 控制台岛（双层嵌套） */
 #controls .core { padding: 15px 17px 13px; }
-#progressRow { display: flex; align-items: center; gap: 12px; color: var(--muted); font: 400 11px/1 'DM Mono', monospace; font-variant-numeric: tabular-nums; }
-#seek { flex: 1; height: 4px; padding: 0; border: 0; border-radius: 999px; background: var(--panel-soft); accent-color: var(--accent); transition: height 0.2s; }
-#seek:hover { height: 7px; }
+#progressRow { display: flex; align-items: center; gap: 12px; color: var(--muted); font: 400 11px/1 'Yiqikan Mono', monospace; font-variant-numeric: tabular-nums; }
+#seek { flex: 1; height: 5px; padding: 0; border: 0; border-radius: 999px; background: var(--panel-soft); accent-color: var(--accent); transition: transform 0.4s var(--ease-spring); }
+#seek:hover:not(:disabled) { transform: scaleY(1.7); }
 
 #btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 #btnRow button {
@@ -394,7 +455,7 @@ input, select { outline: none; }
 @keyframes drawer-in { from { opacity: 0; transform: translateY(26px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 .chat-head { display: flex; justify-content: space-between; align-items: center; padding: 17px 18px 14px; border-bottom: 1px solid var(--line); }
-.chat-head strong { display: block; margin-top: 7px; font-family: 'Noto Serif SC', serif; font-size: 17px; }
+.chat-head strong { display: block; margin-top: 7px; font-family: 'Yiqikan Serif', 'Noto Serif SC', 'Songti SC', serif; font-size: 17px; }
 .chat-head-actions { display: flex; align-items: center; gap: 8px; }
 .closeChat { border: 0; background: transparent; color: var(--muted); font-size: 11px; transition: color 0.3s; }
 .closeChat:hover { color: var(--text); }
@@ -414,7 +475,7 @@ input, select { outline: none; }
 }
 .msg.mine { align-self: flex-end; border-radius: 14px 4px 14px 14px; background: rgba(232, 130, 90, 0.12); text-align: right; }
 @keyframes msg-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
-.msg-from { color: var(--accent-bright); font: 500 10px/1 'DM Mono', monospace; }
+.msg-from { color: var(--accent-bright); font: 500 10px/1 'Yiqikan Mono', monospace; }
 .msg-text { color: var(--text); }
 
 #chatForm { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
@@ -466,6 +527,8 @@ input, select { outline: none; }
   .lobby-intro .sub { font-size: 13px; }
   .entry-card .core { padding: 24px 20px 20px; }
   #roomView { padding-top: 15px; }
+  /* 竖屏观影：画面按视口高度给足，而不是被 16:9 压扁成一条 */
+  #stage { aspect-ratio: auto; height: min(52dvh, 460px); }
   .room-brand .brand-name { font-size: 13px; }
   .members { grid-column: 1 / -1; order: 2; }
   .room-status { order: 1; }

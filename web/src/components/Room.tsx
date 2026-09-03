@@ -19,6 +19,7 @@ export function Room({ room }: { room: RoomApi }) {
   const hlsRef = useRef<Hls | null>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
   const [pickedTitle, setPickedTitle] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -121,6 +122,30 @@ export function Room({ room }: { room: RoomApi }) {
     }, 5000);
     return () => window.clearInterval(t);
   }, [state.isHost, state.mode, actions]);
+
+  // 正片加载中间态：拿到片源到可播放之间亮加载标；出错走轻提示
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onLoading = () => setVideoLoading(true);
+    const onReady = () => setVideoLoading(false);
+    const onError = () => {
+      setVideoLoading(false);
+      notify('影片加载失败：检查直链是否有效');
+    };
+    v.addEventListener('loadstart', onLoading);
+    v.addEventListener('waiting', onLoading);
+    v.addEventListener('canplay', onReady);
+    v.addEventListener('playing', onReady);
+    v.addEventListener('error', onError);
+    return () => {
+      v.removeEventListener('loadstart', onLoading);
+      v.removeEventListener('waiting', onLoading);
+      v.removeEventListener('canplay', onReady);
+      v.removeEventListener('playing', onReady);
+      v.removeEventListener('error', onError);
+    };
+  }, [notify]);
 
   // 任意点击解锁手机自动播放限制
   useEffect(() => {
@@ -239,6 +264,7 @@ export function Room({ room }: { room: RoomApi }) {
         barrages={barrages}
         remoteCamStream={remoteCamStream}
         localCamStream={localCamStream}
+        loading={videoLoading}
       />
       </div>
       <Controls
