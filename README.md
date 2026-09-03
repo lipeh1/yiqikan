@@ -103,8 +103,61 @@ pm2 start "tsx server/src/index.ts" --name yiqikan
 
 建议用 Caddy 套一层 HTTPS（两条配置的事）：手机上震动、剪贴板、
 屏幕采集、摄像头这些 API 只在 HTTPS（或 localhost）下生效。
-有了 VPS 还可以加 TURN（coturn）做屏幕共享中继，打洞失败也能连；
-注意轻量服务器带宽一般 3~5Mbps，TURN 中继时会自动把画质降到流畅档。
+
+### TURN 中继（coturn，打洞失败兜底）
+
+两人通常 P2P 直连不经过服务器；只有一方在 NAT 后面打洞失败时，画面才会
+走 TURN 中继（此时已自动降到流畅档，避免吃满轻量服务器 3~5Mbps 带宽）。
+
+**1. 服务器装 coturn（Ubuntu/Debian）**
+
+```bash
+sudo apt update && sudo apt install -y coturn
+sudo systemctl enable coturn
+```
+
+**2. 改 /etc/turnserver.conf**（替换 IP/域名/密钥）：
+
+```ini
+listening-port=3478
+fingerprint
+lt-cred-mech
+user=yiqikan:换成你的强密码
+realm=你的域名或服务器IP
+# 阿里云是 NAT 环境，必须填公网IP（有些实例要同时给内网IP：公网/内网）
+external-ip=你的公网IP
+# 中继转发的 UDP 端口段，安全组要同步放行
+min-port=49152
+max-port=65535
+no-cli
+log-file=/var/log/turnserver.log
+```
+
+> 有域名就走 `realm=你的域名` 并加证书（cert/pkey 指向 Caddy 签发的证书，
+> 开 tls-listening-port=5349）；只有 IP 也能用，realm 填公网 IP 即可。
+
+**3. 启动并放行安全组**：
+
+```bash
+sudo systemctl restart coturn
+sudo systemctl status coturn      # active (running) 即可
+```
+
+阿里云控制台 → 安全组 → 入方向放行：**TCP/UDP 3478** + **UDP 49152-65535**
+（UDP 转发段；如果只想开一小段就同步改 conf 里的 min/max-port）。
+
+**4. 前端注入 TURN 地址（构建时生效，改 web/.env 后重新 build）**：
+
+```bash
+# web/.env（提交前确认别把密码提交进仓库）
+VITE_TURN_URL=turn:你的域名:3478
+VITE_TURN_USER=yiqikan
+VITE_TURN_CRED=你的强密码
+```
+
+代码里已支持：检测到走中继时自动把画质压到流畅档（`web/src/lib/webrtc.ts`），
+没配 TURN 就保持纯 STUN 不报错。验证是否打通：屏幕共享时两边网络打洞
+失败的场景能连上（不再卡"正在建立连接"）。
 
 ## 片源从哪来
 
@@ -121,7 +174,7 @@ pm2 start "tsx server/src/index.ts" --name yiqikan
 - [x] 连麦静音键 / 降噪（本地静音连接不断 + 采集降噪/回声消除，对端可见静音状态）
 - [x] 悄悄话弹幕（聊天面板开"弹幕"，消息从右往左飘在画面上，你/TA 颜色区分）
 - [x] HLS(m3u8) 支持（hls.js，Safari 原生回退，进度/心跳/弹幕全兼容）
-- [ ] 屏幕共享的 TURN 中继配置（打洞失败兜底）
+- [x] 屏幕共享的 TURN 中继配置（coturn + VITE_TURN_* 注入，打洞失败兜底，自动降档）
 
 改哪里：房间/同步/信令路由在 `server/src/rooms.ts`，前端状态机在
 `web/src/hooks/useRoom.ts`，WebRTC 细节在 `web/src/lib/webrtc.ts`。
