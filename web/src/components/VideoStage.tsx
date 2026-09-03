@@ -28,6 +28,16 @@ interface Props {
   localCamStream: MediaStream | null;
 }
 
+/** 空场胶片图标：细线、圆角矩形片盘 */
+function FilmGlyph() {
+  return (
+    <svg className="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="14" rx="3" />
+      <path d="M8 5v14M16 5v14M3.5 9.5H8M3.5 14.5H8M16 9.5h4.5M16 14.5h4.5" />
+    </svg>
+  );
+}
+
 export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
   {
     videoRef,
@@ -76,14 +86,15 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
 
       {!sharing && !src && (
         <div className="placeholder">
+          <FilmGlyph />
           屋主还没选片
-          <br />
           <span>支持视频直链、本地文件，或让屋主开屏幕共享</span>
         </div>
       )}
 
       {!sharing && src?.kind === 'local' && pickedTitle !== src.title && (
         <div className="placeholder">
+          <FilmGlyph />
           屋主选择了本地文件：<b>{src.title}</b>
           <br />
           <label className="primary filebtn">
@@ -107,21 +118,24 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
           <video ref={shareVideoRef} playsInline />
           {!shareStream && (
             <div className="placeholder">
+              <FilmGlyph />
               正在建立画面连接…
-              <br />
               <span>若长时间停留在这里，多半是两边网络打洞不通</span>
             </div>
           )}
-          <div className="share-tag">正在观看屋主的屏幕</div>
+          <div className="share-tag">live · 正在观看屋主的屏幕</div>
         </>
       )}
 
       {sharing && isHost && (
-        <div className="placeholder">
-          正在共享你的屏幕
-          <br />
-          <span>把要一起看的页面全屏即可，观众看到的是实时画面</span>
-        </div>
+        <>
+          <div className="placeholder">
+            <FilmGlyph />
+            正在共享你的屏幕
+            <span>把要一起看的页面全屏即可，观众看到的是实时画面</span>
+          </div>
+          <div className="share-tag">live · 共享中</div>
+        </>
       )}
 
       {showUnlock && (
@@ -132,7 +146,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
         </div>
       )}
 
-      {/* 悄悄话弹幕：从右往左飘过画面，自己的橙色、对方淡绿 */}
+      {/* 悄悄话弹幕：从右往左飘过画面，自己的朱砂、对方鼠尾草绿 */}
       {barrages.length > 0 && (
         <div className="barrage-layer" aria-hidden="true">
           {barrages.map((b, i) => (

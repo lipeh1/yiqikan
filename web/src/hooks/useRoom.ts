@@ -535,6 +535,7 @@ export function useRoom() {
       toggleBarrage,
       chat,
       poke,
+      notify: toast, // 供组件弹轻提示（替代 window.alert 的正规通道）
       send,
     },
   };

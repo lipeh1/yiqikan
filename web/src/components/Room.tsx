@@ -10,6 +10,8 @@ import { ChatDrawer } from './ChatDrawer';
 
 export function Room({ room }: { room: RoomApi }) {
   const { state, events, actions } = room;
+  // notify 是 useCallback 稳定引用；actions 对象本身每帧重建，不能进 effect 依赖
+  const { notify } = actions;
   const videoRef = useRef<HTMLVideoElement>(null);
   const shareVideoRef = useRef<HTMLVideoElement>(null);
   const voiceAudioRef = useRef<HTMLAudioElement>(null);
@@ -164,7 +166,7 @@ export function Room({ room }: { room: RoomApi }) {
           v.src = src.url;
           v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
         } else {
-          window.alert('这个浏览器不支持 m3u8 播放');
+          notify('这个浏览器不支持 m3u8 播放');
         }
         return;
       }
@@ -174,7 +176,7 @@ export function Room({ room }: { room: RoomApi }) {
         v.addEventListener('loadedmetadata', applyPendingOnce, { once: true });
       }
     }
-  }, [state.src, applyPendingOnce]);
+  }, [state.src, applyPendingOnce, notify]);
 
   // 卸载时销毁 hls 实例
   useEffect(() => () => void hlsRef.current?.destroy(), []);
@@ -216,10 +218,12 @@ export function Room({ room }: { room: RoomApi }) {
 
   return (
     <div id="roomView" className="screen">
-      <RoomHeader state={state} />
+      <RoomHeader state={state} onNotify={actions.notify} />
       {/* 连麦对方的远端声音（隐藏元素，只出声） */}
       <audio ref={voiceAudioRef} autoPlay />
-      <VideoStage
+      {/* 影片画面：外托盘 + 内芯幕布 */}
+      <div className="shell rise" style={{ '--d': 1 } as React.CSSProperties}>
+        <VideoStage
         ref={stageRef}
         videoRef={videoRef}
         shareVideoRef={shareVideoRef}
@@ -236,6 +240,7 @@ export function Room({ room }: { room: RoomApi }) {
         remoteCamStream={remoteCamStream}
         localCamStream={localCamStream}
       />
+      </div>
       <Controls
         stageRef={stageRef}
         videoRef={videoRef}

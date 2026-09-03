@@ -170,7 +170,13 @@ export function Controls({
   const shareLabel = state.sharing ? '停止共享' : '屏幕共享';
 
   return (
-    <section id="controls" aria-label="播放控制">
+    <section
+      id="controls"
+      className="shell rise"
+      style={{ '--d': 2 } as React.CSSProperties}
+      aria-label="播放控制"
+    >
+      <div className="core">
       <div id="progressRow">
         <span>{fmt(cur)}</span>
         <input
@@ -210,8 +216,11 @@ export function Controls({
           </button>
         )}
         {state.isHost && (
-          <label className="control-button" title="屏幕共享画质：选超清看片最清晰；中继/网络差会自动降档">
-            <span className="quality-label">画质</span>
+          <label
+            className="quality-wrap"
+            title="屏幕共享画质：选超清看片最清晰；中继/网络差会自动降档"
+          >
+            <span>画质</span>
             <select
               className="quality-select"
               value={state.quality}
@@ -297,6 +306,7 @@ export function Controls({
             ? '正在观看屋主的屏幕，想TA了就戳一下'
           : '跟着屋主的进度走，想TA了就戳一下'}
       </p>
+      </div>
     </section>
   );
 }

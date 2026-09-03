@@ -20,7 +20,7 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
 
   return (
     <main id="lobby" className="screen lobby-screen">
-      <div className="lobby-brand" aria-label="一起看二人放映室">
+      <div className="lobby-brand rise" style={{ '--d': 0 } as React.CSSProperties} aria-label="一起看二人放映室">
         <span className="brand-mark" aria-hidden="true">
           02
         </span>
@@ -30,15 +30,19 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
 
       <div className="lobby-layout">
         <section className="lobby-intro" aria-labelledby="lobby-title">
-          <div className="intro-rule" aria-hidden="true" />
-          <h1 id="lobby-title">
+          <span className="eyebrow rise" style={{ '--d': 1 } as React.CSSProperties}>
+            private screening
+          </span>
+          <h1 id="lobby-title" className="rise" style={{ '--d': 2 } as React.CSSProperties}>
             今晚的电影，
             <br />
             <em>留给两个人。</em>
           </h1>
-          <p className="sub">同一部片，同一条进度线。把邀请链接发给 TA，坐好就开场。</p>
+          <p className="sub rise" style={{ '--d': 3 } as React.CSSProperties}>
+            同一部片，同一条进度线。把邀请链接发给 TA，坐好就开场。
+          </p>
 
-          <ol className="lobby-notes" aria-label="使用步骤">
+          <ol className="lobby-notes rise" style={{ '--d': 4 } as React.CSSProperties} aria-label="使用步骤">
             <li>
               <span>01</span>
               <p>
@@ -56,60 +60,69 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
           </ol>
         </section>
 
-        <section className="entry-card" aria-labelledby="entry-title">
-          <div className="entry-card-head">
-            <div>
-              <span className="entry-kicker">READY WHEN YOU ARE</span>
-              <h2 id="entry-title">进入放映室</h2>
+        {/* 登记卡：外托盘 + 内芯的双层嵌套 */}
+        <section
+          className="entry-card shell rise"
+          style={{ '--d': 3 } as React.CSSProperties}
+          aria-labelledby="entry-title"
+        >
+          <div className="core">
+            <div className="entry-card-head">
+              <div>
+                <span className="entry-kicker">READY WHEN YOU ARE</span>
+                <h2 id="entry-title">进入放映室</h2>
+              </div>
+              <span className="entry-index" aria-hidden="true">
+                01
+              </span>
             </div>
-            <span className="entry-index" aria-hidden="true">
-              01
-            </span>
-          </div>
 
-          <div className="entry-fields">
-            <label className="field-label" htmlFor="nickname">
-              你的昵称
-            </label>
-            <input
-              id="nickname"
-              placeholder="留个称呼吧"
-              maxLength={12}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <button className="primary entry-primary" onClick={() => onCreate(nick())}>
-              创建房间
-              <span aria-hidden="true">→</span>
-            </button>
-          </div>
-
-          <div className="divider">
-            <span>已有房间</span>
-          </div>
-
-          <div className="join-fields">
-            <label className="field-label" htmlFor="room-code">
-              房间码
-            </label>
-            <div className="row">
+            <div className="entry-fields">
+              <label className="field-label" htmlFor="nickname">
+                你的昵称
+              </label>
               <input
-                id="room-code"
-                placeholder="四位字母或数字"
-                maxLength={4}
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
+                id="nickname"
+                placeholder="留个称呼吧"
+                maxLength={12}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
-              <button className="primary join-button" onClick={() => onJoin(code, nick())}>
-                加入
+              <button className="primary entry-primary" onClick={() => onCreate(nick())}>
+                创建房间
+                <span className="cta-arrow" aria-hidden="true">
+                  →
+                </span>
               </button>
             </div>
-          </div>
 
-          <p className="err" role="alert">
-            {err}
-          </p>
-          <p className="entry-footnote">无需注册 · 房间只在你们看完前保持在线</p>
+            <div className="divider">
+              <span>已有房间</span>
+            </div>
+
+            <div className="join-fields">
+              <label className="field-label" htmlFor="room-code">
+                房间码
+              </label>
+              <div className="row">
+                <input
+                  id="room-code"
+                  placeholder="四位字母或数字"
+                  maxLength={4}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                <button className="primary join-button" onClick={() => onJoin(code, nick())}>
+                  加入
+                </button>
+              </div>
+            </div>
+
+            <p className="err" role="alert">
+              {err}
+            </p>
+            <p className="entry-footnote">无需注册 · 房间只在你们看完前保持在线</p>
+          </div>
         </section>
       </div>
     </main>
