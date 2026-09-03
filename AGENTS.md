@@ -27,3 +27,11 @@
   - `chore: 调整构建配置`
 - 一个提交聚焦一个逻辑变更，不把无关格式化或临时文件混入提交。
 - 不提交 `node_modules`、构建产物或本地环境密钥；遵循 `.gitignore`。
+
+## 推送（本机 github.com:443 被墙）
+
+- 本机直连 `github.com` 不通（`git push`/`git fetch` 会卡到超时），但 `api.github.com` 可通。
+- 推送用 `npm run push`（`scripts/push-via-api.mjs`）：经 GitHub REST API 把本地 HEAD 文件树复刻到远程 main，CI 正常触发。
+- 核对同步状态用 `npm run push:status`：本地与远程文件树 SHA 一致即已同步。
+- 本地 `git status` 显示的"领先 origin/main"只是历史形状不同（远程提交 SHA 由远程父提交决定），以 `npm run push:status` 的树级比对为准。
+- 若日后网络环境变化（如配置了代理、或 SSH key 走 ssh.github.com:443），可恢复直接 `git push`。
