@@ -69,7 +69,8 @@ interface Props {
   actions: RoomApi['actions'];
 }
 
-// 档位说明用人话：说结果（顺不顺、清不清、吃不吃网络），不说码率帧率
+// 档位说明用人话：说结果（顺不顺、清不清、吃不吃网络），不说码率帧率。
+// 弹层里只放档位名（下拉列宽有限，带说明会被截断），说明放触发钮的悬浮提示里。
 const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = [
   { value: 'auto', label: '流畅', hint: '网络差也顺滑' },
   { value: 'hd', label: '高清', hint: '日常看片刚刚好' },
@@ -117,12 +118,12 @@ export function Controls({ stageRef, state, actions }: Props) {
         {state.isHost && (
           <div className="quality-menu">
             <Dropdown
-              options={QUALITY_OPTIONS.map((q) => ({ content: `${q.label} · ${q.hint}`, value: q.value }))}
+              options={QUALITY_OPTIONS.map((q) => ({ content: q.label, value: q.value }))}
               trigger="click"
               placement="top-left"
               onClick={(item) => actions.setQuality(item.value as ShareQuality)}
             >
-              <button type="button" className="quality-trigger">
+              <button type="button" className="quality-trigger" title={`画面清晰度：${qualityNow.hint}`}>
                 <span>画质 · {qualityNow.label}</span>
                 <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="m6 9 6 6 6-6" />
