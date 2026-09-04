@@ -398,8 +398,26 @@ input, select { outline: none; }
 }
 .msg.mine { align-self: flex-end; border-radius: 12px 4px 12px 12px; background: var(--accent-tint); text-align: right; }
 @keyframes msg-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.msg-meta { display: flex; align-items: baseline; gap: 8px; }
 .msg-from { color: var(--accent); font: 500 10px/1 'Yiqikan Mono', monospace; }
+.msg-time { color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; }
 .msg-text { color: var(--text); }
+
+/* 聊天按钮未读角标（腾讯会议红点） */
+.chat-button { position: relative; }
+.chat-badge {
+  position: absolute; top: -7px; right: -7px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  display: grid; place-items: center;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font: 500 10px/1 'Yiqikan Mono', monospace;
+  box-shadow: 0 0 0 2px var(--panel);
+  animation: badge-in 0.4s var(--ease-spring) both;
+}
+@keyframes badge-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: scale(1); } }
 
 #chatForm { display: flex; gap: 8px; padding: 11px; border-top: 1px solid var(--line); }
 #chatForm input {

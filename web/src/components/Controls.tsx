@@ -2,7 +2,7 @@ import { Dropdown, Tooltip } from 'tdesign-react';
 import type { RoomApi } from '../hooks/useRoom';
 import type { ShareQuality } from '../lib/webrtc';
 
-type IconName = 'expand' | 'screen' | 'mic' | 'micoff' | 'cam' | 'spark' | 'chat';
+type IconName = 'expand' | 'screen' | 'mic' | 'micoff' | 'cam' | 'chat';
 
 function ControlIcon({ name }: { name: IconName }) {
   const common = {
@@ -53,12 +53,6 @@ function ControlIcon({ name }: { name: IconName }) {
           <path d="m16 10 5-3v10l-5-3" />
         </svg>
       );
-    case 'spark':
-      return (
-        <svg {...common}>
-          <path d="m12 3 1.5 6.5L20 12l-6.5 1.5L12 20l-1.5-6.5L4 12l6.5-2.5L12 3Z" />
-        </svg>
-      );
     case 'chat':
       return (
         <svg {...common}>
@@ -73,7 +67,6 @@ interface Props {
   stageRef: React.RefObject<{ el: HTMLDivElement | null }>;
   state: RoomApi['state'];
   actions: RoomApi['actions'];
-  onToggleChat: () => void;
 }
 
 const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = [
@@ -82,7 +75,7 @@ const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = 
   { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
 ];
 
-export function Controls({ stageRef, state, actions, onToggleChat }: Props) {
+export function Controls({ stageRef, state, actions }: Props) {
   const fullscreen = () => {
     const stage = stageRef.current?.el;
     if (document.fullscreenElement) {
@@ -167,17 +160,19 @@ export function Controls({ stageRef, state, actions, onToggleChat }: Props) {
           </Tooltip>
         )}
 
-        <Tooltip content="戳一戳对方" placement="top" showArrow={false}>
-          <button className="control-button" onClick={actions.poke}>
-            <ControlIcon name="spark" />
-            <span>戳一下</span>
-          </button>
-        </Tooltip>
-
         <Tooltip content="聊天与悄悄话弹幕" placement="top" showArrow={false}>
-          <button className="control-button" onClick={onToggleChat}>
+          <button
+            className={`control-button chat-button${state.chatOpen ? ' is-active' : ''}`}
+            onClick={actions.toggleChat}
+          >
             <ControlIcon name="chat" />
             <span>聊天</span>
+            {/* 未读角标：抽屉关闭期间的新消息（腾讯会议红点） */}
+            {!state.chatOpen && state.chatUnread > 0 && (
+              <span className="chat-badge" aria-label={`${state.chatUnread} 条未读`}>
+                {state.chatUnread > 99 ? '99+' : state.chatUnread}
+              </span>
+            )}
           </button>
         </Tooltip>
       </div>

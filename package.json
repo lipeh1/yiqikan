@@ -2,7 +2,7 @@
   "name": "yiqikan",
   "version": "0.3.0",
   "private": true,
-  "description": "异地恋一起看片小站：屏幕共享 + 连麦 + 聊天 + 戳一戳",
+  "description": "异地恋一起看片小站：屏幕共享 + 连麦 + 会议式聊天",
   "engines": {
     "node": ">=16.17"
   },

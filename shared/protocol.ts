@@ -27,7 +27,6 @@ export type ClientMsg =
   | { t: 'share-stop' }
   // 社交
   | { t: 'chat'; text: string }
-  | { t: 'poke' }
   // 连麦（音视频共用一条双向 PeerConnection，各自传各自有的轨）
   | { t: 'voice'; on: boolean }
   | { t: 'cam'; on: boolean }
@@ -46,8 +45,7 @@ export type ServerMsg =
   | { t: 'host' } // 你被提升为新屋主
   | { t: 'member'; action: 'join' | 'leave' | 'host'; name: string; cid?: number; members: Member[] }
   | { t: 'mode'; mode: Mode }
-  | { t: 'chat'; from: string; text: string }
-  | { t: 'poke'; from: string }
+  | { t: 'chat'; from: string; text: string; ts: number }
   | { t: 'voice'; cid: number; on: boolean }
   | { t: 'cam'; cid: number; on: boolean }
   | { t: 'mute'; cid: number; on: boolean }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RoomApi } from '../hooks/useRoom';
 import { RoomHeader } from './RoomHeader';
 import { VideoStage, type StageRef } from './VideoStage';
@@ -13,7 +13,6 @@ export function Room({ room }: { room: RoomApi }) {
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [showUnlock, setShowUnlock] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
   const [localCamStream, setLocalCamStream] = useState<MediaStream | null>(null);
   const [barrages, setBarrages] = useState<
@@ -77,9 +76,6 @@ export function Room({ room }: { room: RoomApi }) {
     void voiceAudioRef.current?.play().catch(() => {});
   };
 
-  // 供弹幕开关读取最新状态（避免闭包旧值）
-  const toggleChat = useCallback(() => setChatOpen((v) => !v), []);
-
   return (
     <div id="roomView" className="screen">
       <RoomHeader state={state} onNotify={notify} />
@@ -100,17 +96,12 @@ export function Room({ room }: { room: RoomApi }) {
           localCamStream={localCamStream}
         />
       </div>
-      <Controls
-        stageRef={stageRef}
-        state={state}
-        actions={actions}
-        onToggleChat={toggleChat}
-      />
+      <Controls stageRef={stageRef} state={state} actions={actions} />
       <ChatDrawer
-        open={chatOpen}
+        open={state.chatOpen}
         chat={state.chat}
         onSend={actions.chat}
-        onClose={() => setChatOpen(false)}
+        onClose={actions.closeChat}
         barrageOn={state.barrageOn}
         onToggleBarrage={actions.toggleBarrage}
       />

@@ -10,6 +10,12 @@ interface Props {
   onToggleBarrage: () => void;
 }
 
+/** 会议式时间戳：时:分 */
+const fmtTime = (ts: number) => {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
 export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBarrage }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
@@ -60,7 +66,10 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
         ) : (
           chat.map((c, i) => (
             <div key={i} className={`msg${c.mine ? ' mine' : ''}`}>
-              <span className="msg-from">{c.from}</span>
+              <span className="msg-meta">
+                <span className="msg-from">{c.from}</span>
+                <span className="msg-time">{fmtTime(c.ts)}</span>
+              </span>
               <span className="msg-text">{c.text}</span>
             </div>
           ))

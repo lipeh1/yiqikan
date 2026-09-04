@@ -132,13 +132,8 @@ guest.waitFor('rtc-ice', (m) => {
 host.waitFor('chat', (m) => {
   assert.equal(m.from, '宝宝');
   assert.equal(m.text, '看到这里笑了');
-  console.log('OK 聊天到达屋主');
-  guest.send({ t: 'poke' });
-});
-
-host.waitFor('poke', (m) => {
-  assert.equal(m.from, '宝宝');
-  console.log('OK 戳一戳到达屋主');
+  assert.equal(typeof m.ts, 'number');
+  console.log('OK 聊天到达屋主（带服务端时间戳）');
   // —— 连麦语音 ——
   guest.send({ t: 'voice', on: true });
 });

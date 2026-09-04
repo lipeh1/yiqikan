@@ -137,11 +137,8 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
         .slice(0, 300)
         .trim();
       if (!text) return;
-      broadcast(room, { t: 'chat', from: conn.name, text }, conn);
-      return;
-    }
-    case 'poke': {
-      broadcast(room, { t: 'poke', from: conn.name }, conn);
+      // 时间戳由服务端盖（两端的钟不可信）
+      broadcast(room, { t: 'chat', from: conn.name, text, ts: Date.now() }, conn);
       return;
     }
     case 'voice': {

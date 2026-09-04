@@ -7,6 +7,7 @@ export interface ChatItem {
   from: string;
   text: string;
   mine: boolean;
+  ts: number; // 服务端盖的毫秒时间戳（自己的回显用本地钟）
 }
 
 export interface RoomState {
@@ -29,6 +30,8 @@ export interface RoomState {
   micMuted: boolean;
   barrageOn: boolean;
   quality: ShareQuality;
+  chatOpen: boolean; // 聊天抽屉开合（未读角标据此清零）
+  chatUnread: number; // 抽屉关闭期间收到的新消息数（腾讯会议红点）
 }
 
 export interface RoomEvents {
@@ -59,6 +62,8 @@ const INITIAL: RoomState = {
   micMuted: false,
   barrageOn: false,
   quality: 'hd',
+  chatOpen: false,
+  chatUnread: 0,
 };
 
 const QUALITY_KEY = 'yiqikan-share-quality';
@@ -273,15 +278,17 @@ export function useRoom() {
           if (shareActive) toast('屋主开始共享屏幕了');
           break;
         }
-        case 'chat':
-          set({ chat: [...s.chat.slice(-199), { from: m.from, text: m.text, mine: false }] });
+        case 'chat': {
+          set({ chat: [...s.chat.slice(-199), { from: m.from, text: m.text, mine: false, ts: m.ts }] });
           events.emit('barrage', { text: m.text, mine: false });
+          // 抽屉关着时按腾讯会议的方式提醒：未读角标 + 浮动预览
+          if (!s.chatOpen) {
+            set({ chatUnread: s.chatUnread + 1 });
+            const preview = m.text.length > 18 ? `${m.text.slice(0, 18)}…` : m.text;
+            toast(`${m.from}：${preview}`);
+          }
           break;
-        case 'poke':
-          navigator.vibrate?.([120, 60, 120]);
-          toast(`${m.from} 戳了戳你`);
-          set({ chat: [...s.chat.slice(-199), { from: '戳一戳', text: '戳了戳你，快看片！', mine: false }] });
-          break;
+        }
         case 'voice': {
           const members = s.members.map((x) =>
             x.cid === m.cid ? { ...x, voice: m.on, muted: m.on ? x.muted : false } : x,
@@ -404,17 +411,18 @@ export function useRoom() {
     (text: string) => {
       const s = stateRef.current;
       send({ t: 'chat', text });
-      set({ chat: [...s.chat.slice(-199), { from: `${s.myName}（我）`, text, mine: true }] });
+      set({ chat: [...s.chat.slice(-199), { from: `${s.myName}（我）`, text, mine: true, ts: Date.now() }] });
       events.emit('barrage', { text, mine: true });
     },
     [send, set, events],
   );
 
-  const poke = useCallback(() => {
-    send({ t: 'poke' });
-    navigator.vibrate?.(80);
-    toast('戳了戳对方');
-  }, [send, toast]);
+  // 聊天抽屉开合：打开即清未读（腾讯会议红点行为）
+  const toggleChat = useCallback(() => {
+    const s = stateRef.current;
+    set(s.chatOpen ? { chatOpen: false } : { chatOpen: true, chatUnread: 0 });
+  }, [set]);
+  const closeChat = useCallback(() => set({ chatOpen: false }), [set]);
 
   const toggleCamera = useCallback(async () => {
     if (stateRef.current.camOn) {
@@ -500,8 +508,9 @@ export function useRoom() {
       toggleCamera,
       toggleMute,
       toggleBarrage,
+      toggleChat,
+      closeChat,
       chat,
-      poke,
       notify: toast, // 供组件弹轻提示（替代 window.alert 的正规通道）
       send,
     },
