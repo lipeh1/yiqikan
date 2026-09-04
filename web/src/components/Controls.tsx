@@ -69,10 +69,11 @@ interface Props {
   actions: RoomApi['actions'];
 }
 
+// 档位说明用人话：说结果（顺不顺、清不清、吃不吃网络），不说码率帧率
 const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = [
-  { value: 'auto', label: '流畅', hint: '2.5Mbps · 网络差/中继时稳' },
-  { value: 'hd', label: '高清', hint: '8Mbps · 默认' },
-  { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
+  { value: 'auto', label: '流畅', hint: '网络差也顺滑' },
+  { value: 'hd', label: '高清', hint: '日常看片刚刚好' },
+  { value: 'uhd', label: '超清', hint: '画面最细腻，要网好' },
 ];
 
 export function Controls({ stageRef, state, actions }: Props) {
