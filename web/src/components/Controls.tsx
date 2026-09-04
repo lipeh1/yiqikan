@@ -145,17 +145,7 @@ export function Controls({ stageRef, state, actions, onToggleChat }: Props) {
           </button>
         </Tooltip>
 
-        <Tooltip content="语音连麦（采集已开降噪，建议戴耳机）" placement="top" showArrow={false}>
-          <button
-            className={`control-button${state.voiceOn ? ' is-active' : ''}`}
-            onClick={() => void actions.toggleVoice()}
-          >
-            <ControlIcon name="mic" />
-            <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
-          </button>
-        </Tooltip>
-
-        <Tooltip content="摄像头：互相看脸" placement="top" showArrow={false}>
+        <Tooltip content="摄像头：互相看脸（语音不受影响）" placement="top" showArrow={false}>
           <button
             className={`control-button${state.camOn ? ' is-active' : ''}`}
             onClick={() => void actions.toggleCamera()}

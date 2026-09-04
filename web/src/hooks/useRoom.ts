@@ -157,6 +157,32 @@ export function useRoom() {
     maybeStartVoice();
   }, [maybeStartVoice, state.isHost, state.members, state.voiceOn]);
 
+  /**
+   * 语音常开（腾讯会议模式）：进房自动请求麦克风并入会，会中只有静音、没有"挂断连麦"。
+   * 必须定义在 handle 之前（进了它的依赖数组）。权限被拒时提示，不打断其它功能。
+   */
+  const enableVoice = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+      // 沿用当前静音状态，避免换流后静音失效
+      for (const t of stream.getAudioTracks()) t.enabled = !stateRef.current.micMuted;
+      localVoiceRef.current = stream;
+      send({ t: 'voice', on: true });
+      set({ voiceOn: true });
+      maybeStartVoice();
+    } catch {
+      toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
+    }
+  }, [maybeStartVoice, send, set, toast]);
+
+  // 进房只自动开麦一次（权限弹窗也只出一次），失败不重试不打扰
+  const autoVoiceDoneRef = useRef(false);
+  const autoEnableVoice = useCallback(() => {
+    if (autoVoiceDoneRef.current) return;
+    autoVoiceDoneRef.current = true;
+    void enableVoice();
+  }, [enableVoice]);
+
   const startShare = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -200,6 +226,7 @@ export function useRoom() {
             mode: 'idle',
           });
           toast('房间建好了，把邀请码发给 TA');
+          autoEnableVoice();
           break;
         case 'joined':
           set({
@@ -214,6 +241,7 @@ export function useRoom() {
             hasRemoteStream: false,
           });
           toast('进来啦');
+          autoEnableVoice();
           break;
         case 'host':
           viewerRef.current?.close();
@@ -262,7 +290,7 @@ export function useRoom() {
           if (m.cid === s.myCid) break;
           const who = s.members.find((x) => x.cid === m.cid)?.name ?? '对方';
           if (m.on) {
-            toast(`${who} 开了连麦${s.voiceOn ? '' : '，点 🎤 加入'}`);
+            toast(`${who} 已入会`);
             maybeStartVoice();
           } else {
             hangupVoice();
@@ -336,7 +364,7 @@ export function useRoom() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [events, hangupVoice, maybeStartVoice, send, set, startVoiceLink, toast],
+    [autoEnableVoice, events, hangupVoice, maybeStartVoice, send, set, startVoiceLink, toast],
   );
 
   const connect = useCallback(
@@ -388,74 +416,54 @@ export function useRoom() {
     toast('戳了戳对方');
   }, [send, toast]);
 
-  const stopLocalMedia = useCallback(() => {
-    localVoiceRef.current?.getTracks().forEach((t) => t.stop());
-    localVoiceRef.current = null;
-    events.emit('local-video', null);
-  }, [events]);
-
-  const toggleVoice = useCallback(async () => {
-    if (stateRef.current.voiceOn) {
-      // 摄像头开着时麦克风和摄像头共用一条流：挂连麦=两者全关，避免留下"假开机"状态
-      const wasCam = stateRef.current.camOn;
-      stopLocalMedia();
-      hangupVoice();
-      send({ t: 'voice', on: false });
-      if (wasCam) send({ t: 'cam', on: false });
-      set({ voiceOn: false, camOn: false, micMuted: false });
-      toast(wasCam ? '连麦和摄像头都已关' : '已挂断连麦');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-      localVoiceRef.current = stream;
-      send({ t: 'voice', on: true });
-      set({ voiceOn: true });
-      toast('连麦已开（降噪已开启），建议戴耳机防啸叫');
-      maybeStartVoice();
-    } catch {
-      toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
-    }
-  }, [hangupVoice, maybeStartVoice, send, set, stopLocalMedia, toast]);
-
   const toggleCamera = useCallback(async () => {
     if (stateRef.current.camOn) {
-      stopLocalMedia();
-      hangupVoice();
-      send({ t: 'voice', on: false });
-      send({ t: 'cam', on: false });
-      set({ voiceOn: false, camOn: false, micMuted: false });
-      toast('摄像头已关');
+      // 关摄像头但保留语音（语音常开）：换成纯音频流并重建连接，对端小窗收起
+      localVoiceRef.current?.getTracks().forEach((t) => t.stop());
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+        for (const t of stream.getAudioTracks()) t.enabled = !stateRef.current.micMuted;
+        localVoiceRef.current = stream;
+        events.emit('local-video', null);
+        hangupVoice();
+        send({ t: 'cam', on: false });
+        set({ camOn: false });
+        toast('摄像头已关，语音保持');
+        if (stateRef.current.isHost) startVoiceLink();
+        else maybeStartVoice();
+      } catch {
+        toast('语音恢复失败：检查麦克风权限，或刷新页面重进');
+      }
       return;
     }
     try {
       // 音视频一起开：看脸自然要说话，一条流两个轨一起走；音频同样带降噪
-      // 若之前只开了语音，先停旧音频流再取新流，避免双路麦克风采集
+      // 若之前只有纯音频，先停旧流再取新流，避免双路麦克风采集
       localVoiceRef.current?.getTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: AUDIO_CONSTRAINTS,
         video: true,
       });
+      for (const t of stream.getAudioTracks()) t.enabled = !stateRef.current.micMuted;
       localVoiceRef.current = stream;
       events.emit('local-video', stream);
       // 本地流换了轨：旧连接里没有视频轨，直接重建（屋主端立刻发起，观众端等屋主收到 cam 消息后重建）
       hangupVoice();
-      send({ t: 'voice', on: true });
       send({ t: 'cam', on: true });
-      set({ voiceOn: true, camOn: true });
-      toast('摄像头已开（降噪已开启），对方能看到你了');
+      set({ camOn: true });
+      toast('摄像头已开，对方能看到你了');
       if (stateRef.current.isHost) startVoiceLink();
       else maybeStartVoice();
     } catch {
       toast('拿不到摄像头/麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
     }
-  }, [events, hangupVoice, maybeStartVoice, send, set, startVoiceLink, stopLocalMedia, toast]);
+  }, [events, hangupVoice, maybeStartVoice, send, set, startVoiceLink, toast]);
 
   // 静音键：本地静音（track.enabled 置 false，连接不断），广播让对端看到状态
   const toggleMute = useCallback(() => {
     const s = stateRef.current;
     if (!s.voiceOn && !s.camOn) {
-      toast('先开连麦或摄像头再静音');
+      toast('麦克风没开（权限被拒），静音不可用');
       return;
     }
     const next = !s.micMuted;
@@ -489,7 +497,6 @@ export function useRoom() {
       startShare,
       stopShare,
       setQuality,
-      toggleVoice,
       toggleCamera,
       toggleMute,
       toggleBarrage,
