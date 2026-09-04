@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
 import { Dropdown, Tooltip } from 'tdesign-react';
 import type { RoomApi } from '../hooks/useRoom';
-import { fmt } from '../lib/util';
 import type { ShareQuality } from '../lib/webrtc';
 
-type IconName = 'play' | 'pause' | 'expand' | 'film' | 'screen' | 'mic' | 'micoff' | 'cam' | 'spark' | 'chat';
+type IconName = 'expand' | 'screen' | 'mic' | 'micoff' | 'cam' | 'spark' | 'chat';
 
 function ControlIcon({ name }: { name: IconName }) {
   const common = {
@@ -19,30 +17,11 @@ function ControlIcon({ name }: { name: IconName }) {
   };
 
   switch (name) {
-    case 'play':
-      return (
-        <svg {...common}>
-          <path d="m8 5 11 7-11 7V5Z" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case 'pause':
-      return (
-        <svg {...common}>
-          <path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" stroke="none" />
-        </svg>
-      );
     case 'expand':
       return (
         <svg {...common}>
           <path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4" />
           <path d="M4 4l5 5M20 4l-5 5M20 20l-5-5M4 20l5-5" opacity=".45" />
-        </svg>
-      );
-    case 'film':
-      return (
-        <svg {...common}>
-          <rect x="4" y="5" width="16" height="14" rx="2" />
-          <path d="M8 5v14M16 5v14M4 9h4H4zM4 15h4M16 9h4M16 15h4" />
         </svg>
       );
     case 'screen':
@@ -92,11 +71,8 @@ function ControlIcon({ name }: { name: IconName }) {
 
 interface Props {
   stageRef: React.RefObject<{ el: HTMLDivElement | null }>;
-  videoRef: React.RefObject<HTMLVideoElement>;
   state: RoomApi['state'];
   actions: RoomApi['actions'];
-  onHostLocalFile: (file: File) => void;
-  onTogglePlay: () => void;
   onToggleChat: () => void;
 }
 
@@ -106,70 +82,19 @@ const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = 
   { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
 ];
 
-export function Controls({
-  stageRef,
-  videoRef,
-  state,
-  actions,
-  onHostLocalFile,
-  onTogglePlay,
-  onToggleChat,
-}: Props) {
-  const [cur, setCur] = useState(0);
-  const [dur, setDur] = useState(Number.NaN);
-  const [paused, setPaused] = useState(true);
-  const [bar, setBar] = useState(0);
-  const [srcOpen, setSrcOpen] = useState(false);
-  const [url, setUrl] = useState('');
-  const draggingRef = useRef(false);
-
-  const canSync = state.isHost && state.mode === 'sync';
-  const inCall = state.voiceOn || state.camOn;
-
-  // 轮询进度（<video> 的时间变化没有好用的回调，500ms 足够顺滑）
-  useEffect(() => {
-    const t = window.setInterval(() => {
-      const v = videoRef.current;
-      if (!v?.currentSrc) return;
-      setCur(v.currentTime);
-      setPaused(v.paused);
-      setDur(Number.isFinite(v.duration) ? v.duration : Number.NaN);
-      if (!draggingRef.current && Number.isFinite(v.duration) && v.duration > 0) {
-        setBar(Math.round((v.currentTime / v.duration) * 1000));
-      }
-    }, 500);
-    return () => window.clearInterval(t);
-  }, [videoRef]);
-
-  const onSeekPreview = (val: number) => {
-    draggingRef.current = true;
-    setBar(val);
-    if (Number.isFinite(dur)) setCur((val / 1000) * dur);
-  };
-
-  const onSeekCommit = (val: number) => {
-    draggingRef.current = false;
-    const v = videoRef.current;
-    if (!canSync || !v?.currentSrc || !Number.isFinite(v.duration)) return;
-    v.currentTime = (val / 1000) * v.duration;
-    actions.send({ t: 'sync', playing: !v.paused, pos: v.currentTime });
-  };
-
+export function Controls({ stageRef, state, actions, onToggleChat }: Props) {
   const fullscreen = () => {
     const stage = stageRef.current?.el;
     if (document.fullscreenElement) {
       void document.exitFullscreen();
     } else if (stage?.requestFullscreen) {
       stage.requestFullscreen().catch(() => {});
-    } else if (videoRef.current) {
-      // iPhone Safari 只支持 video 元素自身的私有全屏 API
-      (videoRef.current as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
     }
   };
 
-  const playLabel = paused ? '播放' : '暂停';
   const shareLabel = state.sharing ? '停止共享' : '屏幕共享';
   const qualityNow = QUALITY_OPTIONS.find((q) => q.value === state.quality) ?? QUALITY_OPTIONS[1];
+  const inCall = state.voiceOn || state.camOn;
 
   return (
     <section
@@ -178,47 +103,10 @@ export function Controls({
       style={{ '--d': 2 } as React.CSSProperties}
       aria-label="播放控制"
     >
-      <div id="progressRow">
-        <span>{fmt(cur)}</span>
-        <input
-          id="seek"
-          type="range"
-          min={0}
-          max={1000}
-          value={bar}
-          disabled={!canSync}
-          onChange={(e) => onSeekPreview(Number(e.target.value))}
-          onMouseUp={(e) => onSeekCommit(Number((e.target as HTMLInputElement).value))}
-          onTouchEnd={(e) => onSeekCommit(Number((e.target as HTMLInputElement).value))}
-        />
-        <span>{Number.isFinite(dur) ? fmt(dur) : '--:--'}</span>
-      </div>
-
       <div id="btnRow">
-        <Tooltip content={canSync ? playLabel : '选片后可播放'} placement="top" showArrow={false}>
-          <button className="primary control-button" disabled={!canSync} onClick={onTogglePlay}>
-            <ControlIcon name={paused ? 'play' : 'pause'} />
-            <span>{playLabel}</span>
-          </button>
-        </Tooltip>
-
-        <Tooltip content="全屏" placement="top" showArrow={false}>
-          <button className="control-button" onClick={fullscreen}>
-            <ControlIcon name="expand" />
-            <span>全屏</span>
-          </button>
-        </Tooltip>
-
-        <Tooltip content="视频直链 / 本地文件" placement="top" showArrow={false}>
-          <button className="control-button" disabled={!canSync} onClick={() => setSrcOpen((v) => !v)}>
-            <ControlIcon name="film" />
-            <span>选片</span>
-          </button>
-        </Tooltip>
-
         {state.isHost && (
           <Tooltip
-            content={state.sharing ? '停止共享屏幕' : '把电脑屏幕推给对方（看平台视频用这个）'}
+            content={state.sharing ? '停止共享屏幕' : '把电脑屏幕推给对方（视频网站、本地播放器都行）'}
             placement="top"
             showArrow={false}
           >
@@ -249,6 +137,13 @@ export function Controls({
             </Dropdown>
           </div>
         )}
+
+        <Tooltip content="全屏观看" placement="top" showArrow={false}>
+          <button className="control-button" onClick={fullscreen}>
+            <ControlIcon name="expand" />
+            <span>全屏</span>
+          </button>
+        </Tooltip>
 
         <Tooltip content="语音连麦（采集已开降噪，建议戴耳机）" placement="top" showArrow={false}>
           <button
@@ -297,40 +192,14 @@ export function Controls({
         </Tooltip>
       </div>
 
-      {srcOpen && canSync && (
-        <div id="srcBar">
-          <input
-            placeholder="粘贴视频直链（mp4/webm/m3u8）"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
-          <button onClick={() => url.trim() && actions.setSourceUrl(url.trim())}>用链接</button>
-          <label className="filebtn">
-            本地文件
-            <input
-              type="file"
-              accept="video/*"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  onHostLocalFile(f);
-                  setSrcOpen(false);
-                }
-              }}
-            />
-          </label>
-        </div>
-      )}
-
       <p className="hint">
         {state.isHost
           ? state.mode === 'share'
             ? '共享中：影片全屏播放，画面和声音都会同步给对方'
-            : '你是屋主：选片、播放、拖进度都由你控制'
+            : '你是屋主：点屏幕共享，选要一起看的窗口就开场'
           : state.mode === 'share'
             ? '正在观看屋主的屏幕，想TA了就戳一下'
-          : '跟着屋主的进度走，想TA了就戳一下'}
+          : '等屋主开始共享，想TA了就戳一下'}
       </p>
     </section>
   );

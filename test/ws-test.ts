@@ -78,7 +78,6 @@ guest.waitFor('joined', (m) => {
   assert.equal(m.mode, 'idle');
   guestCid = m.you;
   console.log('OK 观众加入, 成员数=2, 观众 cid =', guestCid);
-  host.send({ t: 'src', kind: 'url', url: '/test.mp4', title: '测试片' });
 });
 
 host.waitFor('member', (m) => {
@@ -86,33 +85,16 @@ host.waitFor('member', (m) => {
   assert.equal(m.name, '宝宝');
   assert.equal(m.cid, guestCid);
   console.log('OK member 事件带 cid');
-});
-
-guest.waitFor('src', (m) => {
-  assert.equal(m.src.kind, 'url');
-  console.log('OK 选片广播到观众');
-  host.send({ t: 'sync', playing: true, pos: 120 });
-});
-
-guest.waitFor('sync', (m) => {
-  assert.equal(m.pos, 120);
-  assert.equal(m.playing, true);
-  console.log('OK 播放状态同步到观众 pos=120');
-  host.send({ t: 'heartbeat', playing: true, pos: 121 });
-});
-
-guest.waitFor('heartbeat', () => {
-  console.log('OK 心跳纠偏 pos=121');
   host.send({ t: 'share-start' });
 });
 
 guest.waitFor('mode', (m) => {
   assert.equal(m.mode, 'share');
   console.log('OK 共享模式广播');
-  // 第二次 mode 事件（退回同步模式）在这里注册，避免加载时被覆盖
+  // 第二次 mode 事件（停止共享退回待场）在这里注册，避免加载时被覆盖
   guest.waitFor('mode', (m2) => {
-    assert.equal(m2.mode, 'sync');
-    console.log('OK 退回同步模式');
+    assert.equal(m2.mode, 'idle');
+    console.log('OK 停止共享退回待场');
     clearTimeout(guard);
     host.ws.close();
     guest.ws.close();

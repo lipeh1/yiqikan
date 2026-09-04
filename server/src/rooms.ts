@@ -15,10 +15,7 @@ export interface Room {
   code: string;
   host: Conn;
   clients: Conn[];
-  mode: 'idle' | 'sync' | 'share';
-  src: { kind: 'url' | 'local'; url: string; title: string } | null;
-  playing: boolean;
-  pos: number;
+  mode: 'idle' | 'share';
   nextCid: number;
 }
 
@@ -76,9 +73,6 @@ export function handleCreate(conn: Conn, rooms: Map<string, Room>, name: string)
     host: conn,
     clients: [],
     mode: 'idle',
-    src: null,
-    playing: false,
-    pos: 0,
     nextCid: 2,
   };
   rooms.set(room.code, room);
@@ -108,8 +102,6 @@ export function handleJoin(conn: Conn, rooms: Map<string, Room>, code: string, n
     hostCid: room.host.cid,
     members: membersOf(room),
     mode: room.mode,
-    src: room.src,
-    sync: { playing: room.playing, pos: room.pos },
   });
   broadcast(room, { t: 'member', action: 'join', name: conn.name, cid: conn.cid, members: membersOf(room) }, conn);
 }
@@ -128,27 +120,6 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
   if (!room || !conn.cid) return;
 
   switch (m.t) {
-    case 'src': {
-      if (conn !== room.host) return;
-      room.src = {
-        kind: m.kind === 'local' ? 'local' : 'url',
-        url: String(m.url || '').slice(0, 1000),
-        title: String(m.title || '未命名').slice(0, 80),
-      };
-      room.playing = false;
-      room.pos = 0;
-      if (room.mode === 'idle') room.mode = 'sync';
-      broadcast(room, { t: 'src', src: room.src });
-      return;
-    }
-    case 'sync':
-    case 'heartbeat': {
-      if (conn !== room.host || room.mode !== 'sync') return;
-      room.playing = !!m.playing;
-      room.pos = Math.max(0, Number(m.pos) || 0);
-      broadcast(room, { t: m.t, playing: room.playing, pos: room.pos }, conn);
-      return;
-    }
     case 'share-start': {
       if (conn !== room.host) return;
       room.mode = 'share';
@@ -157,8 +128,8 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
     }
     case 'share-stop': {
       if (conn !== room.host) return;
-      room.mode = 'sync';
-      broadcast(room, { t: 'mode', mode: 'sync' }, conn);
+      room.mode = 'idle';
+      broadcast(room, { t: 'mode', mode: 'idle' }, conn);
       return;
     }
     case 'chat': {
@@ -246,8 +217,8 @@ export function handleClose(conn: Conn, rooms: Map<string, Room>): void {
       broadcast(room, { t: 'notice', msg: `${conn.name} 离开了，${next.name} 接管了片场` });
       broadcast(room, { t: 'member', action: 'host', name: next.name, members: membersOf(room) });
       if (room.mode === 'share') {
-        room.mode = 'sync';
-        broadcast(room, { t: 'mode', mode: 'sync' });
+        room.mode = 'idle';
+        broadcast(room, { t: 'mode', mode: 'idle' });
       }
     } else {
       rooms.delete(room.code);

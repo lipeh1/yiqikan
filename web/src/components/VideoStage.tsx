@@ -1,5 +1,4 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import type { Mode, SourceState } from '../../../shared/protocol';
 
 export interface BarrageItem {
   id: number;
@@ -12,50 +11,38 @@ export interface StageRef {
 }
 
 interface Props {
-  videoRef: React.RefObject<HTMLVideoElement>;
   shareVideoRef: React.RefObject<HTMLVideoElement>;
   shareStream: MediaStream | null;
   showUnlock: boolean;
   onUnlock: () => void;
-  src: SourceState | null;
   isHost: boolean;
-  mode: Mode;
   shareActive: boolean;
-  pickedTitle: string | null;
-  onPickLocal: (file: File) => void;
   barrages: BarrageItem[];
   remoteCamStream: MediaStream | null;
   localCamStream: MediaStream | null;
-  loading: boolean;
 }
 
-/** 空场胶片图标：与控件图标同一描边体系（1.8） */
-function FilmGlyph() {
+/** 空场图标：与控件图标同一描边体系（1.8） */
+function StageGlyph() {
   return (
     <svg className="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="14" rx="3" />
-      <path d="M8 5v14M16 5v14M3.5 9.5H8M3.5 14.5H8M16 9.5h4.5M16 14.5h4.5" />
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21h8M12 17v4" />
     </svg>
   );
 }
 
 export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
   {
-    videoRef,
     shareVideoRef,
     shareStream,
     showUnlock,
     onUnlock,
-    src,
     isHost,
-    mode,
     shareActive,
-    pickedTitle,
-    onPickLocal,
     barrages,
     remoteCamStream,
     localCamStream,
-    loading,
   },
   ref,
 ) {
@@ -79,48 +66,15 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
     v.play().catch(() => {});
   }, [localCamStream]);
 
-  const sharing = mode === 'share' && shareActive;
-
   return (
     <div id="stage" ref={stageDivRef} aria-label="影片画面">
-      {/* 同步播放模式的视频 */}
-      {!sharing && <video ref={videoRef} playsInline />}
-
-      {!sharing && !src && (
-        <div className="placeholder">
-          <FilmGlyph />
-          屋主还没选片
-          <span>支持视频直链、本地文件，或让屋主开屏幕共享</span>
-        </div>
-      )}
-
-      {!sharing && src?.kind === 'local' && pickedTitle !== src.title && (
-        <div className="placeholder">
-          <FilmGlyph />
-          屋主选择了本地文件：<b>{src.title}</b>
-          <br />
-          <label className="primary filebtn">
-            选择我这边的文件
-            <input
-              type="file"
-              accept="video/*"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onPickLocal(f);
-              }}
-            />
-          </label>
-        </div>
-      )}
-
-      {/* 屏幕共享模式：观众看屋主的屏幕 */}
-      {sharing && !isHost && (
+      {/* 共享中：观众看屋主的屏幕实时流 */}
+      {shareActive && !isHost && (
         <>
           <video ref={shareVideoRef} playsInline />
           {!shareStream && (
             <div className="placeholder">
-              <FilmGlyph />
+              <StageGlyph />
               正在建立画面连接…
               <span>若长时间停留在这里，多半是两边网络打洞不通</span>
             </div>
@@ -129,15 +83,31 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
         </>
       )}
 
-      {sharing && isHost && (
+      {shareActive && isHost && (
         <>
           <div className="placeholder">
-            <FilmGlyph />
+            <StageGlyph />
             正在共享你的屏幕
             <span>把要一起看的页面全屏即可，观众看到的是实时画面</span>
           </div>
           <div className="share-tag">live · 共享中</div>
         </>
+      )}
+
+      {/* 还没开场 */}
+      {!shareActive && !isHost && (
+        <div className="placeholder">
+          <StageGlyph />
+          屋主还没开始共享
+          <span>片源在屋主的电脑上，等 TA 点“屏幕共享”就开场</span>
+        </div>
+      )}
+      {!shareActive && isHost && (
+        <div className="placeholder">
+          <StageGlyph />
+          还没开场
+          <span>点下方“屏幕共享”，选要一起看的窗口（视频网站、本地播放器都行）</span>
+        </div>
       )}
 
       {showUnlock && (
@@ -148,17 +118,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
         </div>
       )}
 
-      {/* 正片加载中间态：设置片源后到可播放前的过渡，弱网不再黑幕 */}
-      {loading && !sharing && (
-        <div className="stage-loading" aria-live="polite">
-          <div>
-            <div className="spin" />
-            正在载入影片
-          </div>
-        </div>
-      )}
-
-      {/* 悄悄话弹幕：从右往左飘过画面，自己的朱砂、对方鼠尾草绿 */}
+      {/* 悄悄话弹幕：从右往左飘过画面，自己的蓝色、对方白色 */}
       {barrages.length > 0 && (
         <div className="barrage-layer" aria-hidden="true">
           {barrages.map((b, i) => (

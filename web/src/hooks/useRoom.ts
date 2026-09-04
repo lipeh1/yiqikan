@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  ClientMsg,
-  Member,
-  Mode,
-  ServerMsg,
-  SourceState,
-  SyncState,
-} from '../../../shared/protocol';
+import type { ClientMsg, Member, Mode, ServerMsg } from '../../../shared/protocol';
 import { Emitter } from '../lib/emitter';
 import { HostSharer, ViewerShare, VoiceLink, type ShareQuality } from '../lib/webrtc';
 
@@ -25,13 +18,12 @@ export interface RoomState {
   myName: string;
   members: Member[];
   mode: Mode;
-  src: SourceState | null;
   chat: ChatItem[];
   toast: string | null;
   lobbyErr: string;
-  sharing: boolean;
-  shareActive: boolean;
-  hasRemoteStream: boolean;
+  sharing: boolean; // 本端（屋主）正在推流
+  shareActive: boolean; // 房间处于共享模式（观众据此切换画面）
+  hasRemoteStream: boolean; // 观众已收到画面流
   voiceOn: boolean;
   camOn: boolean;
   micMuted: boolean;
@@ -40,7 +32,6 @@ export interface RoomState {
 }
 
 export interface RoomEvents {
-  sync: SyncState;
   'share-stream': MediaStream;
   'share-ended': void;
   'voice-stream': MediaStream;
@@ -57,7 +48,6 @@ const INITIAL: RoomState = {
   myName: '',
   members: [],
   mode: 'idle',
-  src: null,
   chat: [],
   toast: null,
   lobbyErr: '',
@@ -208,7 +198,6 @@ export function useRoom() {
             hostCid: m.hostCid,
             members: m.members,
             mode: 'idle',
-            src: null,
           });
           toast('房间建好了，把邀请码发给 TA');
           break;
@@ -221,11 +210,9 @@ export function useRoom() {
             hostCid: m.hostCid,
             members: m.members,
             mode: m.mode,
-            src: m.src,
             shareActive: m.mode === 'share',
             hasRemoteStream: false,
           });
-          if (m.mode === 'sync' && m.src) events.emit('sync', m.sync);
           toast('进来啦');
           break;
         case 'host':
@@ -247,9 +234,6 @@ export function useRoom() {
           }
           break;
         }
-        case 'src':
-          set({ src: m.src });
-          break;
         case 'mode': {
           const shareActive = m.mode === 'share';
           if (!shareActive) {
@@ -261,10 +245,6 @@ export function useRoom() {
           if (shareActive) toast('屋主开始共享屏幕了');
           break;
         }
-        case 'sync':
-        case 'heartbeat':
-          if (!s.isHost) events.emit('sync', { playing: m.playing, pos: m.pos });
-          break;
         case 'chat':
           set({ chat: [...s.chat.slice(-199), { from: m.from, text: m.text, mine: false }] });
           events.emit('barrage', { text: m.text, mine: false });
@@ -392,24 +372,6 @@ export function useRoom() {
     [connect, send, set],
   );
 
-  const setSourceUrl = useCallback(
-    (url: string) => {
-      if (!/^(https?:\/\/|\/)/.test(url)) {
-        toast('要 http(s) 开头的直链');
-        return;
-      }
-      send({ t: 'src', kind: 'url', url, title: '在线视频' });
-    },
-    [send, toast],
-  );
-
-  const setSourceLocal = useCallback(
-    (file: File) => {
-      send({ t: 'src', kind: 'local', url: '', title: file.name });
-    },
-    [send],
-  );
-
   const chat = useCallback(
     (text: string) => {
       const s = stateRef.current;
@@ -524,8 +486,6 @@ export function useRoom() {
     actions: {
       createRoom,
       joinRoom,
-      setSourceUrl,
-      setSourceLocal,
       startShare,
       stopShare,
       setQuality,
@@ -540,5 +500,4 @@ export function useRoom() {
     },
   };
 }
-
 export type RoomApi = ReturnType<typeof useRoom>;

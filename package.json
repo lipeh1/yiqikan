@@ -1,8 +1,8 @@
 {
   "name": "yiqikan",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "异地恋一起看片小站：同步播放 + 屏幕共享 + 聊天 + 戳一戳",
+  "description": "异地恋一起看片小站：屏幕共享 + 连麦 + 聊天 + 戳一戳",
   "engines": {
     "node": ">=16.17"
   },
@@ -19,7 +19,6 @@
     "push:status": "node scripts/push-via-api.mjs status"
   },
   "dependencies": {
-    "hls.js": "^1.7.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tdesign-react": "^1.18.2",

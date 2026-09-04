@@ -46,7 +46,7 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
             <em>留给两个人。</em>
           </h1>
           <p className="sub rise" style={{ '--d': 3 } as React.CSSProperties}>
-            同一部片，同一条进度线。把邀请链接发给 TA，坐好就开场。
+            你放片，TA 隔着屏幕一起看。把邀请链接发给 TA，坐好就开场。
           </p>
 
           <ol className="lobby-notes rise" style={{ '--d': 4 } as React.CSSProperties} aria-label="使用步骤">
@@ -61,7 +61,7 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
               <span>02</span>
               <p>
                 <strong>把邀请发给 TA</strong>
-                <small>同片源同步播放，也可以共享屏幕</small>
+                <small>屋主共享屏幕，边看边聊</small>
               </p>
             </li>
           </ol>

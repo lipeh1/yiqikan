@@ -281,18 +281,6 @@ input, select { outline: none; }
 .placeholder span { color: rgba(255, 255, 255, 0.38); font-size: 12px; }
 .placeholder-icon { width: 34px; height: 34px; opacity: 0.5; margin-bottom: 2px; }
 
-.filebtn {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-height: 40px; padding: 0 16px;
-  border: 1px solid var(--accent); border-radius: 6px;
-  background: var(--accent-tint);
-  color: var(--accent); cursor: pointer;
-  font-size: 12px; font-weight: 600;
-  transition: background 0.25s, transform 0.4s var(--ease-spring);
-}
-.filebtn:hover { background: rgba(0, 82, 217, 0.14); }
-.filebtn:active { transform: scale(0.97); }
-
 .share-tag {
   position: absolute; top: 14px; left: 14px;
   display: inline-flex; align-items: center; gap: 7px;
@@ -306,26 +294,6 @@ input, select { outline: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 .unlock-button { min-height: 42px; padding: 0 18px; }
-
-/* 正片加载中间态 */
-.stage-loading {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  background: rgba(20, 20, 20, 0.55);
-  color: rgba(255, 255, 255, 0.75);
-  font: 500 11px/1 'Yiqikan Mono', monospace;
-  letter-spacing: 0.14em;
-  z-index: 6;
-}
-.stage-loading > div { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.stage-loading .spin {
-  width: 22px; height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* 悄悄话弹幕 */
 .barrage-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
@@ -355,11 +323,8 @@ input, select { outline: none; }
 
 /* 控制台：会议式白底工具岛 */
 #controls { border-radius: var(--r-shell); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-1); padding: 14px 16px 12px; }
-#progressRow { display: flex; align-items: center; gap: 12px; color: var(--muted); font: 400 11px/1 'Yiqikan Mono', monospace; font-variant-numeric: tabular-nums; }
-#seek { flex: 1; height: 5px; padding: 0; border: 0; border-radius: 999px; background: var(--panel-soft); accent-color: var(--accent); transition: transform 0.4s var(--ease-spring); }
-#seek:hover:not(:disabled) { transform: scaleY(1.7); }
 
-#btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+#btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
 #btnRow button {
   min-height: 40px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: 6px;
@@ -390,18 +355,6 @@ input, select { outline: none; }
 .quality-trigger:hover { border-color: var(--line-strong); color: var(--text); }
 .quality-trigger:active { transform: scale(0.96); }
 .quality-trigger .chev { transition: transform 0.35s var(--ease-spring); }
-
-#srcBar { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-#srcBar input {
-  flex: 1; min-width: 160px; height: 38px; padding: 0 12px;
-  border: 1px solid var(--line-strong); border-radius: 6px;
-  background: var(--field); color: var(--text); font-size: 12px;
-  transition: border-color 0.25s, box-shadow 0.25s;
-}
-#srcBar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-#srcBar button { padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--muted); font-size: 12px; }
-#srcBar button:hover { color: var(--text); }
-#srcBar .filebtn { min-height: 38px; }
 
 .hint { margin-top: 10px; color: var(--muted-dark); text-align: center; font-size: 11px; }
 
@@ -510,9 +463,6 @@ input, select { outline: none; }
   #btnRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #btnRow button { width: 100%; }
   .quality-menu { grid-column: 1 / -1; }
-  #srcBar { flex-wrap: wrap; }
-  #srcBar input { min-width: 100%; }
-  #srcBar button, #srcBar .filebtn { flex: 1; }
   #chatDrawer { right: 14px; bottom: 14px; width: calc(100vw - 28px); }
 }
 @media (prefers-reduced-motion: reduce) {
