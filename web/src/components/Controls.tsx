@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Dropdown, Tooltip } from 'tdesign-react';
 import type { RoomApi } from '../hooks/useRoom';
 import { fmt } from '../lib/util';
 import type { ShareQuality } from '../lib/webrtc';
@@ -41,7 +42,7 @@ function ControlIcon({ name }: { name: IconName }) {
       return (
         <svg {...common}>
           <rect x="4" y="5" width="16" height="14" rx="2" />
-          <path d="M8 5v14M16 5v14M4 9h4M16 9h4M4 15h4M16 15h4" />
+          <path d="M8 5v14M16 5v14M4 9h4H4zM4 15h4M16 9h4M16 15h4" />
         </svg>
       );
     case 'screen':
@@ -104,92 +105,6 @@ const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = 
   { value: 'hd', label: '高清', hint: '8Mbps · 默认' },
   { value: 'uhd', label: '超清', hint: '12Mbps · 看片推荐' },
 ];
-
-/**
- * 自绘画质下拉：原生 select 的弹层不吃暗色主题（Windows 白底原生框），
- * 换成与整体同语言的浮层。键盘可达：Enter/↓ 展开，↑↓ 移动，Esc 关闭。
- */
-function QualityMenu({
-  value,
-  onChange,
-}: {
-  value: ShareQuality;
-  onChange: (q: ShareQuality) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const current = QUALITY_OPTIONS.find((q) => q.value === value) ?? QUALITY_OPTIONS[1];
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('pointerdown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDoc);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  // ↑↓ 在选项间移动焦点（选项本身是 button，Enter 天然可选中）
-  const onMenuKey = (e: React.KeyboardEvent) => {
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    e.preventDefault();
-    const opts = [...rootRef.current!.querySelectorAll<HTMLButtonElement>('.quality-option')];
-    const i = opts.indexOf(document.activeElement as HTMLButtonElement);
-    const next = e.key === 'ArrowDown' ? (i + 1) % opts.length : (i - 1 + opts.length) % opts.length;
-    opts[next]?.focus();
-  };
-
-  return (
-    <div className="quality-menu" ref={rootRef} onKeyDown={onMenuKey}>
-      <button
-        type="button"
-        className="quality-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => {
-          if ((e.key === 'ArrowDown' || e.key === 'Enter') && !open) {
-            e.preventDefault();
-            setOpen(true);
-          }
-        }}
-        title="屏幕共享画质：中继/网络差会自动降档"
-      >
-        <span>画质 · {current.label}</span>
-        <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <div className="quality-pop" role="listbox" aria-label="屏幕共享画质">
-          {QUALITY_OPTIONS.map((q) => (
-            <button
-              key={q.value}
-              type="button"
-              role="option"
-              aria-selected={q.value === value}
-              className="quality-option"
-              onClick={() => {
-                onChange(q.value);
-                setOpen(false);
-              }}
-            >
-              <span>{q.label}</span>
-              <span className="q-hint">{q.hint}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function Controls({
   stageRef,
@@ -254,15 +169,15 @@ export function Controls({
 
   const playLabel = paused ? '播放' : '暂停';
   const shareLabel = state.sharing ? '停止共享' : '屏幕共享';
+  const qualityNow = QUALITY_OPTIONS.find((q) => q.value === state.quality) ?? QUALITY_OPTIONS[1];
 
   return (
     <section
       id="controls"
-      className="shell rise"
+      className="rise"
       style={{ '--d': 2 } as React.CSSProperties}
       aria-label="播放控制"
     >
-      <div className="core">
       <div id="progressRow">
         <span>{fmt(cur)}</span>
         <input
@@ -280,64 +195,106 @@ export function Controls({
       </div>
 
       <div id="btnRow">
-        <button className="primary control-button" disabled={!canSync} onClick={onTogglePlay}>
-          <ControlIcon name={paused ? 'play' : 'pause'} />
-          <span>{playLabel}</span>
-        </button>
-        <button className="control-button" onClick={fullscreen} title="全屏">
-          <ControlIcon name="expand" />
-          <span>全屏</span>
-        </button>
-        <button className="control-button" disabled={!canSync} onClick={() => setSrcOpen((v) => !v)}>
-          <ControlIcon name="film" />
-          <span>选片</span>
-        </button>
-        {state.isHost && (
-          <button
-            className="control-button"
-            onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}
-          >
-            <ControlIcon name="screen" />
-            <span>{shareLabel}</span>
+        <Tooltip content={canSync ? playLabel : '选片后可播放'} placement="top" showArrow={false}>
+          <button className="primary control-button" disabled={!canSync} onClick={onTogglePlay}>
+            <ControlIcon name={paused ? 'play' : 'pause'} />
+            <span>{playLabel}</span>
           </button>
-        )}
+        </Tooltip>
+
+        <Tooltip content="全屏" placement="top" showArrow={false}>
+          <button className="control-button" onClick={fullscreen}>
+            <ControlIcon name="expand" />
+            <span>全屏</span>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="视频直链 / 本地文件" placement="top" showArrow={false}>
+          <button className="control-button" disabled={!canSync} onClick={() => setSrcOpen((v) => !v)}>
+            <ControlIcon name="film" />
+            <span>选片</span>
+          </button>
+        </Tooltip>
+
         {state.isHost && (
-          <QualityMenu value={state.quality} onChange={actions.setQuality} />
+          <Tooltip
+            content={state.sharing ? '停止共享屏幕' : '把电脑屏幕推给对方（看平台视频用这个）'}
+            placement="top"
+            showArrow={false}
+          >
+            <button
+              className={`control-button${state.sharing ? ' is-danger' : ''}`}
+              onClick={() => (state.sharing ? actions.stopShare() : void actions.startShare())}
+            >
+              <ControlIcon name="screen" />
+              <span>{shareLabel}</span>
+            </button>
+          </Tooltip>
         )}
-        <button
-          className={`control-button${state.voiceOn ? ' is-active' : ''}`}
-          onClick={() => void actions.toggleVoice()}
-          title="连麦：语音聊天，采集已开降噪，建议戴耳机防啸叫"
-        >
-          <ControlIcon name="mic" />
-          <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
-        </button>
-        <button
-          className={`control-button${state.camOn ? ' is-active' : ''}`}
-          onClick={() => void actions.toggleCamera()}
-          title="摄像头：音视频连麦，互相看脸"
-        >
-          <ControlIcon name="cam" />
-          <span>{state.camOn ? '关摄像头' : '摄像头'}</span>
-        </button>
+
+        {state.isHost && (
+          <div className="quality-menu">
+            <Dropdown
+              options={QUALITY_OPTIONS.map((q) => ({ content: `${q.label} · ${q.hint}`, value: q.value }))}
+              trigger="click"
+              placement="top-left"
+              onClick={(item) => actions.setQuality(item.value as ShareQuality)}
+            >
+              <button type="button" className="quality-trigger">
+                <span>画质 · {qualityNow.label}</span>
+                <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+            </Dropdown>
+          </div>
+        )}
+
+        <Tooltip content="语音连麦（采集已开降噪，建议戴耳机）" placement="top" showArrow={false}>
+          <button
+            className={`control-button${state.voiceOn ? ' is-active' : ''}`}
+            onClick={() => void actions.toggleVoice()}
+          >
+            <ControlIcon name="mic" />
+            <span>{state.voiceOn ? '挂断连麦' : '连麦'}</span>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="摄像头：互相看脸" placement="top" showArrow={false}>
+          <button
+            className={`control-button${state.camOn ? ' is-active' : ''}`}
+            onClick={() => void actions.toggleCamera()}
+          >
+            <ControlIcon name="cam" />
+            <span>{state.camOn ? '关摄像头' : '摄像头'}</span>
+          </button>
+        </Tooltip>
+
         {inCall && (
-          <button
-            className={`control-button${state.micMuted ? ' is-active' : ''}`}
-            onClick={actions.toggleMute}
-            title="静音：本地静音，连接不断"
-          >
-            <ControlIcon name={state.micMuted ? 'micoff' : 'mic'} />
-            <span>{state.micMuted ? '取消静音' : '静音'}</span>
-          </button>
+          <Tooltip content={state.micMuted ? '取消静音' : '静音麦克风'} placement="top" showArrow={false}>
+            <button
+              className={`control-button${state.micMuted ? ' is-danger' : ''}`}
+              onClick={actions.toggleMute}
+            >
+              <ControlIcon name={state.micMuted ? 'micoff' : 'mic'} />
+              <span>{state.micMuted ? '取消静音' : '静音'}</span>
+            </button>
+          </Tooltip>
         )}
-        <button className="control-button" onClick={actions.poke}>
-          <ControlIcon name="spark" />
-          <span>戳一下</span>
-        </button>
-        <button className="control-button" onClick={onToggleChat}>
-          <ControlIcon name="chat" />
-          <span>聊天</span>
-        </button>
+
+        <Tooltip content="戳一戳对方" placement="top" showArrow={false}>
+          <button className="control-button" onClick={actions.poke}>
+            <ControlIcon name="spark" />
+            <span>戳一下</span>
+          </button>
+        </Tooltip>
+
+        <Tooltip content="聊天与悄悄话弹幕" placement="top" showArrow={false}>
+          <button className="control-button" onClick={onToggleChat}>
+            <ControlIcon name="chat" />
+            <span>聊天</span>
+          </button>
+        </Tooltip>
       </div>
 
       {srcOpen && canSync && (
@@ -375,7 +332,6 @@ export function Controls({
             ? '正在观看屋主的屏幕，想TA了就戳一下'
           : '跟着屋主的进度走，想TA了就戳一下'}
       </p>
-      </div>
     </section>
   );
 }

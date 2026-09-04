@@ -5,10 +5,9 @@
  * 运行：node scripts/build-fonts.mjs（仅在改了界面文案需要新字符时重跑）
  *
  * 子集策略：
- * - 衬线（展示字体）只用于固定文案（标题/品牌/小节名），按需取字，体积最小；
- *   动态内容（昵称/聊天）由系统字体承接，不进子集。
- * - 正文干脆用系统字体栈（PingFang/雅黑原生足够好），不再 webfont。
- * - DM Mono 是纯拉丁小字体，按 ASCII 全量子集。
+ * - 展示层已改无衬线工具风（腾讯会议/TDesign 方向），不再子集衬线；
+ *   只保留 DM Mono 给房间码/时间戳/状态标签，按 ASCII 全量子集。
+ * - 动态内容（昵称/聊天）与正文由系统字体栈承接，不进子集。
  */
 import https from 'node:https';
 import fs from 'node:fs';
@@ -19,18 +18,6 @@ import subsetFont from 'subset-font';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'web/src/assets/fonts');
 fs.mkdirSync(OUT, { recursive: true });
-
-// 衬线字体的全部固定文案（改了界面大字请同步更新这里的字符）
-const SERIF_TEXT = [
-  '今晚的电影，留给两个人。',
-  '一起看',
-  '进入放映室',
-  '聊天',
-  // 序号/标点/字母数字兜底
-  '0123456789',
-  'AaBbCcDdEeFfGgHhIiJjKkLlMnNoOpPqQrRsStTuUvVwWxXyYzZ',
-  '，。：·—、！？（）',
-].join('');
 
 const MONO_TEXT = [
   ' !"#$%&\'()*+,-./0123456789:;<=>?@',
@@ -73,8 +60,6 @@ async function build(family, weight, text, outName) {
 }
 
 (async () => {
-  await build('Noto+Serif+SC', '700', SERIF_TEXT, 'serif-700.woff2');
-  await build('Noto+Serif+SC', '900', SERIF_TEXT, 'serif-900.woff2');
   await build('DM+Mono', '400', MONO_TEXT, 'mono-400.woff2');
   await build('DM+Mono', '500', MONO_TEXT, 'mono-500.woff2');
   console.log('完成 → web/src/assets/fonts/');
