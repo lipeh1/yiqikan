@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 
 interface Props {
   onCreate: (name: string) => void;
@@ -31,6 +32,7 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
         </span>
         <span className="brand-name">一起看</span>
         <span className="brand-note">二人放映室</span>
+        <ThemeToggle />
       </div>
 
       <div className="lobby-layout">

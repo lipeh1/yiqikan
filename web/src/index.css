@@ -25,6 +25,7 @@
   --bg: #eeeeee;                 /* td-bg-color-page */
   --panel: #ffffff;              /* td-bg-color-container */
   --panel-soft: #f3f3f3;         /* td-bg-color-secondarycontainer */
+  --field: #ffffff;              /* 输入框/按钮底 */
   --line: #e8e8e8;               /* td-component-stroke */
   --line-strong: #c6c6c6;
   --accent: #0052d9;             /* td-brand-color */
@@ -42,6 +43,27 @@
   --ease-spring: cubic-bezier(0.34, 1.4, 0.44, 1);
   --r-shell: 12px;
   --r-core: 9px;
+}
+
+/* 深色模式：与 TDesign 同一属性开关（html[theme-mode='dark']），值取自官方暗色 token */
+html[theme-mode='dark'] {
+  --bg: #181818;                 /* td-dark bg-color-page */
+  --panel: #242424;              /* td-dark bg-color-container */
+  --panel-soft: #2c2c2c;
+  --field: #181818;
+  --line: #393939;
+  --line-strong: #5e5e5e;
+  --accent: #4582e6;             /* td-dark brand-color-8 */
+  --accent-hover: #6a9aee;
+  --accent-tint: rgba(69, 130, 230, 0.16);
+  --danger: #c64751;             /* td-dark error-color-6 */
+  --danger-tint: rgba(198, 71, 81, 0.16);
+  --text: rgba(255, 255, 255, 0.9);
+  --muted: rgba(255, 255, 255, 0.55);
+  --muted-dark: rgba(255, 255, 255, 0.35);
+  --success: #059465;
+  --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --shadow-2: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
 
 html, body, #root { min-height: 100%; }
@@ -104,6 +126,7 @@ input, select { outline: none; }
 .lobby-screen { padding: 30px 0 48px; }
 
 .lobby-brand, .room-brand { display: flex; align-items: center; gap: 10px; }
+.lobby-brand .theme-toggle { margin-left: auto; }
 .brand-mark {
   display: inline-grid; place-items: center;
   width: 30px; height: 30px;
@@ -170,7 +193,7 @@ input, select { outline: none; }
 .entry-card input {
   width: 100%; height: 46px; padding: 0 14px;
   border: 1px solid var(--line-strong); border-radius: 6px;
-  background: #fff;
+  background: var(--field);
   color: var(--text); font-size: 14px;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
@@ -215,7 +238,7 @@ input, select { outline: none; }
 
 .mini {
   border: 1px solid var(--line-strong); border-radius: 6px;
-  background: #fff; color: var(--muted);
+  background: var(--field); color: var(--muted);
   padding: 7px 11px; font-size: 11px;
   transition: border-color 0.25s, color 0.25s, transform 0.4s var(--ease-spring);
 }
@@ -340,7 +363,7 @@ input, select { outline: none; }
 #btnRow button {
   min-height: 40px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: 6px;
-  background: #fff;
+  background: var(--field);
   color: var(--muted); white-space: nowrap;
   transition: border-color 0.25s, color 0.25s, background 0.25s, transform 0.4s var(--ease-spring);
 }
@@ -360,7 +383,7 @@ input, select { outline: none; }
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 40px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: 6px;
-  background: #fff;
+  background: var(--field);
   color: var(--muted); font-size: 12px;
   transition: border-color 0.25s, color 0.25s, transform 0.4s var(--ease-spring);
 }
@@ -372,11 +395,11 @@ input, select { outline: none; }
 #srcBar input {
   flex: 1; min-width: 160px; height: 38px; padding: 0 12px;
   border: 1px solid var(--line-strong); border-radius: 6px;
-  background: #fff; color: var(--text); font-size: 12px;
+  background: var(--field); color: var(--text); font-size: 12px;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 #srcBar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
-#srcBar button { padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--muted); font-size: 12px; }
+#srcBar button { padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--field); color: var(--muted); font-size: 12px; }
 #srcBar button:hover { color: var(--text); }
 #srcBar .filebtn { min-height: 38px; }
 
@@ -406,7 +429,7 @@ input, select { outline: none; }
 .chat-head-actions { display: flex; align-items: center; gap: 8px; }
 .closeChat { border: 0; background: transparent; color: var(--muted); font-size: 11px; }
 .closeChat:hover { color: var(--text); }
-.barrage-toggle { border: 1px solid var(--line-strong); border-radius: 999px; background: #fff; color: var(--muted); padding: 6px 12px; font-size: 11px; transition: all 0.25s; }
+.barrage-toggle { border: 1px solid var(--line-strong); border-radius: 999px; background: var(--field); color: var(--muted); padding: 6px 12px; font-size: 11px; transition: all 0.25s; }
 .barrage-toggle.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
 
 #chatLog { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 15px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
@@ -429,7 +452,7 @@ input, select { outline: none; }
 #chatForm input {
   flex: 1; min-width: 0; height: 38px; padding: 0 12px;
   border: 1px solid var(--line-strong); border-radius: 6px;
-  background: #fff; color: var(--text); font-size: 12px;
+  background: var(--field); color: var(--text); font-size: 12px;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 #chatForm input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }

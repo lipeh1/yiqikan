@@ -1,4 +1,5 @@
 import type { RoomState } from '../hooks/useRoom';
+import { ThemeToggle } from './ThemeToggle';
 
 /** 品牌标：播放三角，与 favicon 同一符号 */
 function BrandMark() {
@@ -67,6 +68,7 @@ export function RoomHeader({
         <button className="mini leave-button" onClick={() => location.assign('/')}>
           离开
         </button>
+        <ThemeToggle />
       </div>
 
       <div className="members">
