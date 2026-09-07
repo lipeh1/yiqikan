@@ -388,6 +388,11 @@ input, select { outline: none; }
 }
 /* live 标签是白字药丸，玻璃底要比面板更深才压得住亮画面 */
 .share-tag.glass { background: rgba(0, 0, 0, 0.35); }
+/* 弹幕药丸同理：深玻璃底 + 保留自己的（蓝/黑）语义色 */
+.barrage-item.glass { background: rgba(0, 0, 0, 0.32); }
+.barrage-item.mine.glass { background: rgba(0, 82, 217, 0.5); }
+/* #controls 是 ID 选择器，特异性压过 .glass，需显式换成玻璃底 */
+#controls.glass { background: var(--glass-tint); border-color: var(--glass-edge); }
 
 /* ---------- 聊天抽屉 ---------- */
 #chatDrawer {
@@ -522,5 +527,8 @@ input, select { outline: none; }
 /* 透明度敏感：玻璃回到实底、去掉折射/磨砂 */
 @media (prefers-reduced-transparency: reduce) {
   .glass { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--line); }
+  #controls.glass { background: var(--panel); border-color: var(--line); }
   .share-tag.glass { background: rgba(0, 0, 0, 0.6); }
+  .barrage-item.glass { background: rgba(0, 0, 0, 0.55); }
+  .barrage-item.mine.glass { background: rgba(0, 82, 217, 0.72); }
 }

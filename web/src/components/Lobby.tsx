@@ -69,7 +69,7 @@ export function Lobby({ onCreate, onJoin, err }: Props) {
 
         {/* 登记卡：外托盘 + 内芯的双层嵌套 */}
         <section
-          className="entry-card shell rise"
+          className="entry-card shell glass rise"
           style={{ '--d': 3 } as React.CSSProperties}
           aria-labelledby="entry-title"
         >

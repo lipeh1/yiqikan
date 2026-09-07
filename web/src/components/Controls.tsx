@@ -94,7 +94,7 @@ export function Controls({ stageRef, state, actions }: Props) {
   return (
     <section
       id="controls"
-      className="rise"
+      className="glass rise"
       style={{ '--d': 2 } as React.CSSProperties}
       aria-label="播放控制"
     >

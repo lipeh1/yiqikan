@@ -52,7 +52,7 @@ export function RoomHeader({
   };
 
   return (
-    <header className="room-header rise" style={{ '--d': 0 } as React.CSSProperties}>
+    <header className="room-header glass rise" style={{ '--d': 0 } as React.CSSProperties}>
       <div className="room-brand" aria-label="一起看二人放映室">
         <BrandMark />
         <span className="brand-name">一起看</span>

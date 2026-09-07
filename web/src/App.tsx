@@ -21,7 +21,7 @@ export default function App() {
         <Room room={room} />
       )}
       {/* 轻提示：role + aria-live 让读屏器播报（连接断开/进房/错误等全靠它） */}
-      <div id="toast" role="status" aria-live="polite" className={room.state.toast ? 'show' : ''}>
+      <div id="toast" role="status" aria-live="polite" className={room.state.toast ? 'glass show' : 'glass'}>
         {room.state.toast}
       </div>
     </>
