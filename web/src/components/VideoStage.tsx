@@ -79,7 +79,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
               <span>若长时间停留在这里，多半是两边网络打洞不通</span>
             </div>
           )}
-          <div className="share-tag">live · 正在观看屋主的屏幕</div>
+          <div className="share-tag glass">live · 正在观看屋主的屏幕</div>
         </>
       )}
 
@@ -90,7 +90,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
             正在共享你的屏幕
             <span>把要一起看的页面全屏即可，观众看到的是实时画面</span>
           </div>
-          <div className="share-tag">live · 共享中</div>
+          <div className="share-tag glass">live · 共享中</div>
         </>
       )}
 

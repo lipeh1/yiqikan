@@ -37,6 +37,8 @@
   --muted: rgba(0, 0, 0, 0.6);   /* td-text-color-secondary */
   --muted-dark: rgba(0, 0, 0, 0.4);
   --success: #2ba471;            /* td-success-color */
+  --glass-tint: rgba(255, 255, 255, 0.6);  /* 液态玻璃底色：画在折射之上 */
+  --glass-edge: rgba(255, 255, 255, 0.35); /* 玻璃受光边 */
   --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.08);
   --shadow-2: 0 16px 40px rgba(0, 0, 0, 0.12);
   --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
@@ -62,6 +64,8 @@ html[theme-mode='dark'] {
   --muted: rgba(255, 255, 255, 0.55);
   --muted-dark: rgba(255, 255, 255, 0.35);
   --success: #059465;
+  --glass-tint: rgba(22, 22, 22, 0.58);
+  --glass-edge: rgba(255, 255, 255, 0.16);
   --shadow-1: 0 8px 24px rgba(0, 0, 0, 0.32);
   --shadow-2: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
@@ -373,6 +377,18 @@ input, select { outline: none; }
 
 .hint { margin-top: 10px; color: var(--muted-dark); text-align: center; font-size: 11px; }
 
+/* ---------- 液态玻璃（hyalite）----------
+   Chromium 下 hyalite 往元素写 --hyalite（真折射滤镜）；其余浏览器消费
+   括号里的磨砂兜底。底色必须半透明，玻璃才看得见背后的画面。 */
+.glass {
+  background: var(--glass-tint);
+  backdrop-filter: var(--hyalite, blur(18px) saturate(160%));
+  -webkit-backdrop-filter: var(--hyalite, blur(18px) saturate(160%));
+  border: 1px solid var(--glass-edge);
+}
+/* live 标签是白字药丸，玻璃底要比面板更深才压得住亮画面 */
+.share-tag.glass { background: rgba(0, 0, 0, 0.35); }
+
 /* ---------- 聊天抽屉 ---------- */
 #chatDrawer {
   position: fixed;
@@ -384,8 +400,6 @@ input, select { outline: none; }
   width: min(360px, calc(100vw - 32px));
   height: min(500px, 60dvh);
   border-radius: var(--r-shell);
-  background: var(--panel);
-  border: 1px solid var(--line);
   box-shadow: var(--shadow-2);
   transform-origin: bottom right;
   animation: drawer-in 0.4s var(--ease-spring) both;
@@ -504,4 +518,9 @@ input, select { outline: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+/* 透明度敏感：玻璃回到实底、去掉折射/磨砂 */
+@media (prefers-reduced-transparency: reduce) {
+  .glass { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--line); }
+  .share-tag.glass { background: rgba(0, 0, 0, 0.6); }
 }

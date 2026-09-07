@@ -1,9 +1,14 @@
+import { useEffect } from 'react';
 import { useRoom } from './hooks/useRoom';
 import { Lobby } from './components/Lobby';
 import { Room } from './components/Room';
+import { initGlass } from './lib/glass';
 
 export default function App() {
   const room = useRoom();
+
+  // 液态玻璃：全页 .glass 元素（聊天抽屉、live 标签等浮在画面上的层）
+  useEffect(() => initGlass(), []);
 
   return (
     <>

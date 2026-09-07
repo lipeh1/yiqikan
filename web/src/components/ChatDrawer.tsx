@@ -53,7 +53,7 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
   if (!mounted) return null;
 
   return (
-    <aside id="chatDrawer" className={open ? '' : 'closing'} aria-label="聊天">
+    <aside id="chatDrawer" className={open ? 'glass' : 'glass closing'} aria-label="聊天">
       <div className="chat-head">
         <div>
           <span className="chat-kicker">live notes</span>
