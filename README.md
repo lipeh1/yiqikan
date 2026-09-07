@@ -89,6 +89,9 @@ npx localtunnel --port 10000         # 窗口2：得到 https://xxx.loca.lt
 
 ## 异地部署（需要一台 VPS）
 
+> 零基础手把手版（含 Node/Caddy/coturn 安装、安全组、备案说明、常见坑）：
+> [docs/DEPLOY.md](docs/DEPLOY.md)。以下是速览。
+
 阿里云/腾讯云轻量服务器即可（国内直连快），安全组放行端口后：
 
 ```bash
