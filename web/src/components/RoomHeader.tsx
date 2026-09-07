@@ -82,11 +82,6 @@ export function RoomHeader({
           </span>
         ))}
       </div>
-
-      <div className="room-status" aria-label="当前模式">
-        <span className={`status-dot${state.mode === 'share' ? ' is-share' : ''}`} aria-hidden="true" />
-        {state.mode === 'share' ? '屏幕共享' : '等你开场'}
-      </div>
     </header>
   );
 }

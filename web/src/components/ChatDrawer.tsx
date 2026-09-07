@@ -20,15 +20,27 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
   const inputRef = useRef<HTMLInputElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
+  // 关闭不瞬间消失：先挂 closing 类沿入场反向退场，动画结束后再卸载
+  const [mounted, setMounted] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      return;
+    }
+    const t = window.setTimeout(() => setMounted(false), 240);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
   }, [chat, open]);
 
+  // 抽屉是条件挂载的，聚焦要等 mounted 就位后再触发
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
+    if (open && mounted) inputRef.current?.focus();
+  }, [open, mounted]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +50,10 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
     setDraft('');
   };
 
+  if (!mounted) return null;
+
   return (
-    <aside id="chatDrawer" className={open ? '' : 'hidden'} aria-label="聊天">
+    <aside id="chatDrawer" className={open ? '' : 'closing'} aria-label="聊天">
       <div className="chat-head">
         <div>
           <span className="chat-kicker">live notes</span>

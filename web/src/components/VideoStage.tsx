@@ -125,7 +125,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
             <span
               key={b.id}
               className={`barrage-item${b.mine ? ' mine' : ''}`}
-              style={{ top: 16 + (i % 4) * 40 }}
+              style={{ top: 52 + (i % 4) * 40 }}
             >
               {b.text}
             </span>

@@ -69,12 +69,20 @@ html[theme-mode='dark'] {
 html, body, #root { min-height: 100%; }
 
 body {
-  font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  font-family: system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 主题切换：颜色平滑过渡而非硬切。theme-ready 在首次应用主题后由 applyTheme 补上，
+   避免深色用户首屏从浅色淡入闪一下 */
+html.theme-ready *,
+html.theme-ready *::before,
+html.theme-ready *::after {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 button, input, select { font: inherit; }
@@ -107,7 +115,7 @@ input, select { outline: none; }
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.rise { animation: rise 0.6s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 80ms); }
+.rise { animation: rise 0.45s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 80ms); }
 
 /* ---------- 通用按钮 ---------- */
 .primary {
@@ -119,8 +127,9 @@ input, select { outline: none; }
   box-shadow: var(--shadow-1);
   transition: background 0.25s, transform 0.4s var(--ease-spring), box-shadow 0.25s;
 }
+/* 按压反馈：按下 0.1s 立即缩到位，松开后由基础规则的弹簧缓慢回弹（各按钮同此模式） */
 .primary:not(:disabled):hover { background: var(--accent-hover); }
-.primary:not(:disabled):active { transform: scale(0.977); }
+.primary:not(:disabled):active { transform: scale(0.977); transition: transform 0.1s ease-out; }
 
 /* ---------- 大厅 ---------- */
 .lobby-screen { padding: 30px 0 48px; }
@@ -136,12 +145,12 @@ input, select { outline: none; }
 }
 .brand-mark svg { width: 12px; height: 12px; }
 .brand-name { font-size: 15px; font-weight: 700; letter-spacing: 0.14em; }
-.brand-note { margin-left: 2px; color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.brand-note { margin-left: 2px; color: var(--muted-dark); font: 400 11px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
 
 .lobby-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.78fr);
-  gap: clamp(56px, 9vw, 140px);
+  gap: clamp(48px, 7vw, 96px);
   align-items: center;
   min-height: calc(100dvh - 140px);
   min-width: 0;
@@ -155,7 +164,7 @@ input, select { outline: none; }
   border-radius: 999px;
   background: var(--accent-tint);
   color: var(--accent);
-  font: 500 10px/1 'Yiqikan Mono', monospace;
+  font: 500 11px/1 'Yiqikan Mono', monospace;
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
@@ -167,7 +176,7 @@ input, select { outline: none; }
   font-size: clamp(42px, 5.6vw, 72px);
   line-height: 1.14;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 .lobby-intro h1 em { color: var(--accent); font-style: normal; }
@@ -185,7 +194,7 @@ input, select { outline: none; }
 .entry-card .core { padding: 30px 30px 24px; }
 
 .entry-card-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
-.entry-kicker, .chat-kicker { display: block; color: var(--accent); font: 500 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.13em; text-transform: uppercase; }
+.entry-kicker, .chat-kicker { display: block; color: var(--accent); font: 500 11px/1 'Yiqikan Mono', monospace; letter-spacing: 0.13em; text-transform: uppercase; }
 .entry-card h2 { margin-top: 10px; font-size: 22px; font-weight: 700; }
 
 .entry-fields, .join-fields { display: grid; gap: 10px; margin-top: 22px; }
@@ -200,17 +209,18 @@ input, select { outline: none; }
 .entry-card input::placeholder { color: var(--muted-dark); }
 .entry-card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
 
-.entry-primary { display: flex; justify-content: space-between; align-items: center; height: 48px; margin-top: 4px; padding: 0 7px 0 17px; font-size: 14px; }
+.entry-primary { display: flex; justify-content: space-between; align-items: center; height: 46px; margin-top: 4px; padding: 0 7px 0 17px; font-size: 14px; }
 .cta-arrow {
   display: grid; place-items: center;
   width: 34px; height: 34px; border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   font-size: 17px;
-  transition: transform 0.45s var(--ease-spring);
+  transition: transform 0.3s var(--ease-spring);
 }
-.entry-primary:hover .cta-arrow { transform: translate(2px, -2px) scale(1.06); }
+/* 悬停箭头向右指：方向与"进入下一步"的动作含义一致 */
+.entry-primary:hover .cta-arrow { transform: translateX(3px); }
 
-.divider { display: flex; align-items: center; gap: 15px; margin-top: 24px; color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
+.divider { display: flex; align-items: center; gap: 15px; margin-top: 24px; color: var(--muted-dark); font: 400 11px/1 'Yiqikan Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase; }
 .divider::before, .divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 
 .row { display: flex; gap: 8px; min-width: 0; }
@@ -220,11 +230,15 @@ input, select { outline: none; }
 .entry-footnote { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--muted-dark); font-size: 11px; }
 
 /* ---------- 房间页 ---------- */
-#roomView { display: flex; flex-direction: column; gap: 16px; padding: 20px 0 44px; }
+/* 撑满视口、控制条锚到底部：既是会议类布局惯例，也让聊天抽屉的固定定位有可预测的落点 */
+#roomView { display: flex; flex-direction: column; gap: 16px; padding: 20px 0 24px; min-height: 100dvh; }
+/* 画面在头部与控制条之间垂直居中 */
+.stage-slot { flex: 1; display: flex; align-items: center; min-height: 0; }
+.stage-slot #stage { width: 100%; }
 
 .room-header {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   gap: 22px; align-items: center;
   padding: 14px 18px;
   border-radius: var(--r-shell);
@@ -243,20 +257,19 @@ input, select { outline: none; }
   transition: border-color 0.25s, color 0.25s, transform 0.4s var(--ease-spring);
 }
 .mini:hover { border-color: var(--accent); color: var(--accent); }
-.mini:active { transform: scale(0.96); }
+.mini:active { transform: scale(0.96); transition: transform 0.1s ease-out; }
 /* 危险操作（离开/挂断）：会议软件惯例——红 */
 .mini.leave-button { border-color: var(--danger); color: var(--danger); }
 .mini.leave-button:hover { background: var(--danger-tint); }
+/* 触控目标：图标钮视觉保持小，但可点区域外扩到约 40px+ */
+.mini.theme-toggle { position: relative; }
+.mini.theme-toggle::after { content: ''; position: absolute; inset: -6px; }
 
 .members { display: flex; gap: 11px; flex-wrap: wrap; }
 .member { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 .member-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
 .member-dot-host { background: var(--accent); }
-.member-self, .member-role, .member-voice { color: var(--muted-dark); font: 400 9px/1 'Yiqikan Mono', monospace; }
-
-.room-status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
-.status-dot.is-share { background: var(--danger); }
+.member-self, .member-role, .member-voice { color: var(--muted-dark); font-size: 11px; }
 
 /* 影片画面：浅色界面里的深色幕布（视频内容需要暗场，会议软件的视频瓦片同理） */
 #stage {
@@ -288,7 +301,7 @@ input, select { outline: none; }
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  font: 500 10px/1 'Yiqikan Mono', monospace; letter-spacing: 0.06em;
+  font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
 }
 .share-tag::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--danger); animation: pulse 1.6s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -333,7 +346,7 @@ input, select { outline: none; }
   transition: border-color 0.25s, color 0.25s, background 0.25s, transform 0.4s var(--ease-spring);
 }
 #btnRow button:hover:not(:disabled) { border-color: var(--line-strong); color: var(--text); }
-#btnRow button:active:not(:disabled) { transform: scale(0.96); }
+#btnRow button:active:not(:disabled) { transform: scale(0.96); transition: transform 0.1s ease-out; }
 #btnRow .primary { border-color: transparent; }
 /* 会议语义：开启中=蓝、已关闭/静音=红 */
 #btnRow .is-active { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
@@ -353,8 +366,10 @@ input, select { outline: none; }
   transition: border-color 0.25s, color 0.25s, transform 0.4s var(--ease-spring);
 }
 .quality-trigger:hover { border-color: var(--line-strong); color: var(--text); }
-.quality-trigger:active { transform: scale(0.96); }
+.quality-trigger:active { transform: scale(0.96); transition: transform 0.1s ease-out; }
 .quality-trigger .chev { transition: transform 0.35s var(--ease-spring); }
+/* 下拉触发锚：Dropdown 需要可挂引用的 DOM 子元素承载点击触发，画质悬浮提示由内层 Tooltip 包住按钮 */
+.quality-anchor { display: inline-flex; max-width: 100%; }
 
 .hint { margin-top: 10px; color: var(--muted-dark); text-align: center; font-size: 11px; }
 
@@ -362,25 +377,29 @@ input, select { outline: none; }
 #chatDrawer {
   position: fixed;
   right: max(22px, calc((100vw - 1180px) / 2));
-  bottom: 22px;
+  /* 抬到控制条上方：打开时不遮挡控制按钮（含聊天触发钮自身） */
+  bottom: 132px;
   z-index: 20;
   display: flex; flex-direction: column;
   width: min(360px, calc(100vw - 32px));
-  height: min(510px, 70dvh);
+  height: min(500px, 60dvh);
   border-radius: var(--r-shell);
   background: var(--panel);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-2);
   transform-origin: bottom right;
-  animation: drawer-in 0.5s var(--ease-spring) both;
+  animation: drawer-in 0.4s var(--ease-spring) both;
 }
-#chatDrawer.hidden { display: none !important; }
+/* 收起：沿入场的同一路径反向退场，而非瞬间消失 */
+#chatDrawer.closing { pointer-events: none; animation: drawer-out 0.22s var(--ease-out) both; }
 @keyframes drawer-in { from { opacity: 0; transform: translateY(22px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(22px) scale(0.97); } }
 
 .chat-head { display: flex; justify-content: space-between; align-items: center; padding: 15px 17px 13px; border-bottom: 1px solid var(--line); }
 .chat-head strong { display: block; margin-top: 6px; font-size: 16px; }
 .chat-head-actions { display: flex; align-items: center; gap: 8px; }
-.closeChat { border: 0; background: transparent; color: var(--muted); font-size: 11px; }
+.closeChat { border: 0; background: transparent; color: var(--muted); font-size: 11px; padding: 9px 10px; position: relative; }
+.closeChat::after { content: ''; position: absolute; inset: -7px; }
 .closeChat:hover { color: var(--text); }
 .barrage-toggle { border: 1px solid var(--line-strong); border-radius: 999px; background: var(--field); color: var(--muted); padding: 6px 12px; font-size: 11px; transition: all 0.25s; }
 .barrage-toggle.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
@@ -399,8 +418,8 @@ input, select { outline: none; }
 .msg.mine { align-self: flex-end; border-radius: 12px 4px 12px 12px; background: var(--accent-tint); text-align: right; }
 @keyframes msg-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 .msg-meta { display: flex; align-items: baseline; gap: 8px; }
-.msg-from { color: var(--accent); font: 500 10px/1 'Yiqikan Mono', monospace; }
-.msg-time { color: var(--muted-dark); font: 400 10px/1 'Yiqikan Mono', monospace; }
+.msg-from { color: var(--accent); font: 500 11px/1 'Yiqikan Mono', monospace; }
+.msg-time { color: var(--muted-dark); font: 400 11px/1 'Yiqikan Mono', monospace; }
 .msg-text { color: var(--text); }
 
 /* 聊天按钮未读角标（腾讯会议红点） */
@@ -413,7 +432,7 @@ input, select { outline: none; }
   border-radius: 999px;
   background: var(--danger);
   color: #fff;
-  font: 500 10px/1 'Yiqikan Mono', monospace;
+  font: 500 11px/1 'Yiqikan Mono', monospace;
   box-shadow: 0 0 0 2px var(--panel);
   animation: badge-in 0.4s var(--ease-spring) both;
 }
@@ -435,7 +454,7 @@ input, select { outline: none; }
   transition: background 0.25s, transform 0.4s var(--ease-spring);
 }
 #chatForm button[type='submit']:hover { background: var(--accent-hover); }
-#chatForm button[type='submit']:active { transform: scale(0.92); }
+#chatForm button[type='submit']:active { transform: scale(0.92); transition: transform 0.1s ease-out; }
 #chatForm button[type='submit'] svg { width: 15px; height: 15px; }
 
 /* ---------- 轻提示 ---------- */
@@ -463,7 +482,7 @@ input, select { outline: none; }
   .entry-card { justify-self: stretch; max-width: none; }
   .room-header { grid-template-columns: auto 1fr auto; gap: 14px; }
   .room-session { order: 3; grid-column: 1 / -1; }
-  .room-status { justify-self: end; }
+  .members { justify-self: end; }
   #remoteCam, #localCam { width: min(38%, 250px); }
   .barrage-item { font-size: 13px; }
 }
@@ -477,10 +496,10 @@ input, select { outline: none; }
   #stage { aspect-ratio: auto; height: min(52dvh, 460px); }
   .room-brand .brand-name { font-size: 13px; }
   .members { grid-column: 1 / -1; order: 2; }
-  .room-status { order: 1; }
   #btnRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #btnRow button { width: 100%; }
   .quality-menu { grid-column: 1 / -1; }
+  .quality-anchor { display: block; width: 100%; }
   #chatDrawer { right: 14px; bottom: 14px; width: calc(100vw - 28px); }
 }
 @media (prefers-reduced-motion: reduce) {

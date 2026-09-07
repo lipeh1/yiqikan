@@ -82,7 +82,7 @@ export function Room({ room }: { room: RoomApi }) {
       {/* 连麦对方的远端声音（隐藏元素，只出声） */}
       <audio ref={voiceAudioRef} autoPlay />
       {/* 影片画面：屋主共享的屏幕实时流 */}
-      <div className="rise" style={{ '--d': 1 } as React.CSSProperties}>
+      <div className="rise stage-slot" style={{ '--d': 1 } as React.CSSProperties}>
         <VideoStage
           ref={stageRef}
           shareVideoRef={shareVideoRef}

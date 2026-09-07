@@ -123,12 +123,22 @@ export function Controls({ stageRef, state, actions }: Props) {
               placement="top-left"
               onClick={(item) => actions.setQuality(item.value as ShareQuality)}
             >
-              <button type="button" className="quality-trigger" title={`画面清晰度：${qualityNow.hint}`}>
-                <span>画质 · {qualityNow.label}</span>
-                <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
+              {/* Dropdown 的触发子元素必须是 DOM 元素（组件会丢失引用），
+                  因此锚 span 承载下拉触发，画质说明的悬浮提示由 Tooltip 包住按钮 */}
+              <span className="quality-anchor">
+                <Tooltip
+                  content={`画面清晰度：${qualityNow.hint}`}
+                  placement="top"
+                  showArrow={false}
+                >
+                  <button type="button" className="quality-trigger">
+                    <span>画质 · {qualityNow.label}</span>
+                    <svg className="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              </span>
             </Dropdown>
           </div>
         )}
