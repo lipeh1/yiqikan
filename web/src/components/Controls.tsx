@@ -64,6 +64,7 @@ function ControlIcon({ name }: { name: IconName }) {
 }
 
 interface Props {
+  chatButtonRef: React.RefObject<HTMLButtonElement>;
   stageRef: React.RefObject<{ el: HTMLDivElement | null }>;
   state: RoomApi['state'];
   actions: RoomApi['actions'];
@@ -77,7 +78,7 @@ const QUALITY_OPTIONS: { value: ShareQuality; label: string; hint: string }[] = 
   { value: 'uhd', label: '超清', hint: '画面最细腻，要网好' },
 ];
 
-export function Controls({ stageRef, state, actions }: Props) {
+export function Controls({ stageRef, chatButtonRef, state, actions }: Props) {
   const fullscreen = () => {
     const stage = stageRef.current?.el;
     if (document.fullscreenElement) {
@@ -174,6 +175,9 @@ export function Controls({ stageRef, state, actions }: Props) {
 
         <Tooltip content="聊天与悄悄话弹幕" placement="top" showArrow={false}>
           <button
+            ref={chatButtonRef}
+            aria-expanded={state.chatOpen}
+            aria-controls={state.chatOpen ? 'chatDrawer' : undefined}
             className={`control-button chat-button${state.chatOpen ? ' is-active' : ''}`}
             onClick={actions.toggleChat}
           >
@@ -189,14 +193,32 @@ export function Controls({ stageRef, state, actions }: Props) {
         </Tooltip>
       </div>
 
+      {(state.micIssue || state.micPending) && (
+        <div className="mic-feedback">
+          <p role="status">
+            {state.micPending ? '正在打开麦克风…' : `${state.micIssue?.message} 你仍可观看和聊天。`}
+          </p>
+          {state.micIssue?.canRetry && (
+            <button
+              type="button"
+              className="mini"
+              onClick={() => void actions.enableVoice()}
+              disabled={state.micPending}
+            >
+              重试麦克风
+            </button>
+          )}
+        </div>
+      )}
+
       <p className="hint">
         {state.isHost
           ? state.mode === 'share'
             ? '共享中：影片全屏播放，画面和声音都会同步给对方'
             : '你是屋主：点屏幕共享，选要一起看的窗口就开场'
           : state.mode === 'share'
-            ? '正在观看屋主的屏幕，想TA了就戳一下'
-          : '等屋主开始共享，想TA了就戳一下'}
+            ? '观看时可以点「全屏」放大画面'
+            : '等待屋主共享时，可以点「聊天」发消息'}
       </p>
     </section>
   );

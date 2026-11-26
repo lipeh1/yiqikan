@@ -16,7 +16,13 @@ export default function App() {
         跳到内容
       </a>
       {room.state.phase === 'lobby' ? (
-        <Lobby onCreate={room.actions.createRoom} onJoin={room.actions.joinRoom} err={room.state.lobbyErr} />
+        <Lobby
+          onCreate={room.actions.createRoom}
+          onJoin={room.actions.joinRoom}
+          onClearError={room.actions.clearLobbyError}
+          err={room.state.lobbyErr}
+          pending={room.state.lobbyPending}
+        />
       ) : (
         <Room room={room} />
       )}

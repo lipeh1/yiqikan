@@ -23,6 +23,7 @@ export function Room({ room }: { room: RoomApi }) {
   const shareVideoRef = useRef<HTMLVideoElement>(null);
   const voiceAudioRef = useRef<HTMLAudioElement>(null);
   const stageRef = useRef<StageRef>(null);
+  const chatButtonRef = useRef<HTMLButtonElement>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
   const [shareBlocked, setShareBlocked] = useState(false);
@@ -89,9 +90,22 @@ export function Room({ room }: { room: RoomApi }) {
   }, [onUnlock]);
 
   const voicePeer = state.members.find((member) => member.host !== state.isHost);
+  const closeChat = () => {
+    actions.closeChat();
+    chatButtonRef.current?.focus();
+  };
 
   return (
-    <div id="roomView" className="screen">
+    <div
+      id="roomView"
+      className={state.chatOpen ? 'screen chat-open' : 'screen'}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && state.chatOpen && !event.defaultPrevented && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          closeChat();
+        }
+      }}
+    >
       <RoomHeader state={state} onNotify={notify} />
       {/* 连麦对方的远端声音（隐藏元素，只出声） */}
       <audio ref={voiceAudioRef} autoPlay />
@@ -110,15 +124,15 @@ export function Room({ room }: { room: RoomApi }) {
           localCamStream={localCamStream}
         />
       </div>
-      <Controls stageRef={stageRef} state={state} actions={actions} />
       <ChatDrawer
         open={state.chatOpen}
         chat={state.chat}
         onSend={actions.chat}
-        onClose={actions.closeChat}
+        onClose={closeChat}
         barrageOn={state.barrageOn}
         onToggleBarrage={actions.toggleBarrage}
       />
+      <Controls stageRef={stageRef} chatButtonRef={chatButtonRef} state={state} actions={actions} />
     </div>
   );
 }

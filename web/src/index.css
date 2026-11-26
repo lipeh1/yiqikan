@@ -234,7 +234,6 @@ input, select { outline: none; }
 .entry-footnote { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--muted-dark); font-size: 11px; }
 
 /* ---------- 房间页 ---------- */
-/* 撑满视口、控制条锚到底部：既是会议类布局惯例，也让聊天抽屉的固定定位有可预测的落点 */
 #roomView { display: flex; flex-direction: column; gap: 16px; padding: 20px 0 24px; min-height: 100dvh; }
 /* 画面在头部与控制条之间垂直居中 */
 .stage-slot { flex: 1; display: flex; align-items: center; min-height: 0; }
@@ -375,6 +374,14 @@ input, select { outline: none; }
 /* 下拉触发锚：Dropdown 需要可挂引用的 DOM 子元素承载点击触发，画质悬浮提示由内层 Tooltip 包住按钮 */
 .quality-anchor { display: inline-flex; max-width: 100%; }
 
+.mic-feedback {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+  color: var(--text); font-size: 13px; line-height: 1.5;
+}
+.mic-feedback p { margin: 0; }
+.mic-feedback button { min-height: 40px; }
+
 .hint { margin-top: 10px; color: var(--muted-dark); text-align: center; font-size: 11px; }
 
 /* ---------- 液态玻璃（hyalite）----------
@@ -396,26 +403,28 @@ input, select { outline: none; }
 
 /* ---------- 聊天抽屉 ---------- */
 #chatDrawer {
-  position: fixed;
-  right: max(22px, calc((100vw - 1180px) / 2));
-  /* 抬到控制条上方：打开时不遮挡控制按钮（含聊天触发钮自身） */
-  bottom: 132px;
-  z-index: 20;
   display: flex; flex-direction: column;
-  width: min(360px, calc(100vw - 32px));
-  height: min(500px, 60dvh);
+  min-width: 0;
+  height: clamp(220px, 36dvh, 360px);
   border-radius: var(--r-shell);
   box-shadow: var(--shadow-2);
-  transform-origin: bottom right;
   animation: drawer-in 0.4s var(--ease-spring) both;
 }
-/* 收起：沿入场的同一路径反向退场，而非瞬间消失 */
-#chatDrawer.closing { pointer-events: none; animation: drawer-out 0.22s var(--ease-out) both; }
-@keyframes drawer-in { from { opacity: 0; transform: translateY(22px) scale(0.97); } to { opacity: 1; transform: none; } }
-@keyframes drawer-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(22px) scale(0.97); } }
+@keyframes drawer-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (min-width: 821px) {
+  #roomView.chat-open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 30%);
+    grid-template-rows: auto 1fr auto;
+    align-items: center;
+  }
+  .chat-open .room-header, .chat-open #controls { grid-column: 1 / -1; }
+  .chat-open #chatDrawer { height: min(64dvh, 500px); }
+}
 
 .chat-head { display: flex; justify-content: space-between; align-items: center; padding: 15px 17px 13px; border-bottom: 1px solid var(--line); }
-.chat-head strong { display: block; margin-top: 6px; font-size: 16px; }
+.chat-head h2 { margin: 0; font-size: 16px; }
 .chat-head-actions { display: flex; align-items: center; gap: 8px; }
 .closeChat { border: 0; background: transparent; color: var(--muted); font-size: 11px; padding: 9px 10px; position: relative; }
 .closeChat::after { content: ''; position: absolute; inset: -7px; }
@@ -519,7 +528,19 @@ input, select { outline: none; }
   #btnRow button { width: 100%; }
   .quality-menu { grid-column: 1 / -1; }
   .quality-anchor { display: block; width: 100%; }
-  #chatDrawer { right: 14px; bottom: 14px; width: calc(100vw - 28px); }
+}
+@media (max-width: 820px) {
+  #roomView.chat-open { gap: 10px; }
+  .chat-open .stage-slot { flex: none; }
+  .chat-open #stage { aspect-ratio: 16 / 9; height: auto; max-height: 32dvh; }
+}
+@media (max-width: 520px) {
+  .chat-open #btnRow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .chat-open #btnRow button { padding: 0 4px; gap: 4px; }
+  .chat-open .quality-menu { grid-column: auto; }
+  .chat-open #chatDrawer { height: clamp(180px, 30dvh, 280px); }
+  .chat-open .chat-head { padding: 8px 12px; }
+  .chat-open #chatForm { padding: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
@@ -532,3 +553,26 @@ input, select { outline: none; }
   .barrage-item.glass { background: rgba(0, 0, 0, 0.55); }
   .barrage-item.mine.glass { background: rgba(0, 82, 217, 0.72); }
 }
+
+/* 邀请落地页优先显示已填好的加入表单，尤其是手机首屏。 */
+.invite-lobby .lobby-layout {
+  grid-template-columns: minmax(0, 420px);
+  justify-content: center;
+}
+.invite-lobby .entry-card h1 { font-size: 26px; line-height: 1.35; }
+.invite-lobby label[for='room-code'] { margin-top: 10px; }
+.invite-lobby .row { display: grid; gap: 18px; }
+.invite-lobby .join-button { min-height: 46px; font-size: 15px; }
+.entry-card .err { margin-top: 0; }
+.entry-card input[aria-describedby='room-code-error'] { border-color: var(--danger); }
+.invite-lobby .err:empty { min-height: 0; }
+.invite-create { text-align: center; }
+.invite-secondary {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+}
+.invite-secondary:hover { color: var(--accent); }

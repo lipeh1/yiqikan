@@ -22,10 +22,13 @@ export interface RoomState {
   chat: ChatItem[];
   toast: string | null;
   lobbyErr: string;
+  lobbyPending: 'create' | 'join' | null;
   sharing: boolean; // 本端（屋主）正在推流
   shareActive: boolean; // 房间处于共享模式（观众据此切换画面）
   hasRemoteStream: boolean; // 观众已收到画面流
   voiceOn: boolean;
+  micPending: boolean;
+  micIssue: { message: string; canRetry: boolean } | null;
   camOn: boolean;
   micMuted: boolean;
   barrageOn: boolean;
@@ -54,10 +57,13 @@ const INITIAL: RoomState = {
   chat: [],
   toast: null,
   lobbyErr: '',
+  lobbyPending: null,
   sharing: false,
   shareActive: false,
   hasRemoteStream: false,
   voiceOn: false,
+  micPending: false,
+  micIssue: null,
   camOn: false,
   micMuted: false,
   barrageOn: false,
@@ -79,6 +85,21 @@ const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
   autoGainControl: true,
 };
+
+function microphoneError(error: unknown): string {
+  switch (error instanceof Error && error.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return '麦克风访问受限。请在浏览器的网站权限和系统设置中允许使用麦克风。';
+    case 'NotFoundError':
+      return '没有找到麦克风。请连接设备，或在系统设置中选择输入设备。';
+    case 'NotReadableError':
+    case 'AbortError':
+      return '麦克风暂时无法采集声音。请检查设备连接，并关闭可能占用它的应用。';
+    default:
+      return '麦克风启动失败。请检查浏览器的麦克风权限和当前输入设备。';
+  }
+}
 
 export function useRoom() {
   const [state, setState] = useState<RoomState>({ ...INITIAL, quality: readQuality() });
@@ -154,10 +175,18 @@ export function useRoom() {
   const enableVoice = useCallback((): Promise<MediaStream | null> => {
     if (localVoiceRef.current) return Promise.resolve(localVoiceRef.current);
     if (micRequest.current) return micRequest.current;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      const message = window.isSecureContext
+        ? '当前浏览器不支持麦克风采集。请用支持语音通话的浏览器打开房间链接。'
+        : '麦克风需要安全连接。请用 HTTPS 地址打开房间。';
+      set({ micIssue: { message, canRetry: false } });
+      return Promise.resolve(null);
+    }
+
     const ws = wsRef.current;
-    micRequest.current = (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+    set({ micPending: true });
+    micRequest.current = navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS })
+      .then((stream) => {
         if (ws !== wsRef.current || ws?.readyState !== WebSocket.OPEN) {
           stream.getTracks().forEach((t) => t.stop());
           return null;
@@ -165,17 +194,19 @@ export function useRoom() {
         for (const t of stream.getAudioTracks()) t.enabled = !stateRef.current.micMuted;
         localVoiceRef.current = stream;
         send({ t: 'voice', on: true });
-        set({ voiceOn: true });
+        set({ voiceOn: true, micIssue: null });
         return stream;
-      } catch {
-        toast('拿不到麦克风：检查权限（http 环境浏览器会禁用，走 https 隧道即可）');
+      })
+      .catch((error: unknown) => {
+        if (ws === wsRef.current) set({ micIssue: { message: microphoneError(error), canRetry: true } });
         return null;
-      } finally {
+      })
+      .finally(() => {
         micRequest.current = null;
-      }
-    })();
+        if (ws === wsRef.current) set({ micPending: false });
+      });
     return micRequest.current;
-  }, [send, set, toast]);
+  }, [send, set]);
 
   const startShare = useCallback(async () => {
     if (shareBusy.current || sharerRef.current) return;
@@ -227,6 +258,7 @@ export function useRoom() {
         case 'created':
           set({
             phase: 'room',
+            lobbyPending: null,
             roomCode: m.room,
             isHost: true,
             myCid: m.you,
@@ -240,6 +272,7 @@ export function useRoom() {
         case 'joined':
           set({
             phase: 'room',
+            lobbyPending: null,
             roomCode: m.room,
             isHost: false,
             myCid: m.you,
@@ -354,7 +387,13 @@ export function useRoom() {
           toast(m.msg);
           break;
         case 'err':
-          toast(m.msg);
+          if (s.phase === 'lobby') {
+            set({ lobbyErr: m.msg, lobbyPending: null });
+            wsRef.current?.close();
+            wsRef.current = null;
+          } else {
+            toast(m.msg);
+          }
           break;
         case 'rtc-offer': {
           viewerRef.current?.close();
@@ -378,37 +417,56 @@ export function useRoom() {
     [enableVoice, events, hangupVoice, maybeStartVoice, send, set, toast],
   );
 
+  const clearLobbyError = useCallback(() => {
+    const { lobbyErr, lobbyPending } = stateRef.current;
+    if (lobbyPending === 'join') {
+      // 修改房间码后，旧请求的结果已不再对应当前输入。
+      wsRef.current?.close();
+      wsRef.current = null;
+      set({ lobbyErr: '', lobbyPending: null });
+    } else if (lobbyErr) {
+      set({ lobbyErr: '' });
+    }
+  }, [set]);
+
   const connect = useCallback(
-    (onOpen: () => void) => {
+    (request: Extract<ClientMsg, { t: 'create' | 'join' }>) => {
+      if (stateRef.current.lobbyPending || stateRef.current.phase !== 'lobby') return;
       const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
       const ws = new WebSocket(`${proto}${location.host}/ws`);
       wsRef.current = ws;
-      ws.onopen = onOpen;
-      ws.onmessage = (e) => handle(JSON.parse(e.data as string) as ServerMsg);
-      ws.onclose = () => toast('连接断了，刷新一下重进吧');
+      set({ myName: request.name, chat: [], lobbyErr: '', lobbyPending: request.t });
+      ws.onopen = () => {
+        if (wsRef.current === ws) ws.send(JSON.stringify(request));
+      };
+      ws.onmessage = (e) => {
+        if (wsRef.current === ws) handle(JSON.parse(e.data as string) as ServerMsg);
+      };
+      ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+        wsRef.current = null;
+        if (stateRef.current.phase === 'lobby') {
+          set({ lobbyPending: null, lobbyErr: '连接失败，请检查网络后重试' });
+        } else {
+          toast('连接断了，刷新一下重进吧');
+        }
+      };
     },
-    [handle, toast],
+    [handle, set, toast],
   );
 
-  const createRoom = useCallback(
-    (name: string) => {
-      set({ myName: name, chat: [], lobbyErr: '' });
-      connect(() => send({ t: 'create', name }));
-    },
-    [connect, send, set],
-  );
+  const createRoom = useCallback((name: string) => connect({ t: 'create', name }), [connect]);
 
   const joinRoom = useCallback(
     (code: string, name: string) => {
-      const c = code.trim().toUpperCase();
-      if (c.length !== 4) {
-        set({ lobbyErr: '房间码是 4 位哦' });
+      const room = code.trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(room)) {
+        set({ lobbyErr: '请输入 4 位字母或数字房间码' });
         return;
       }
-      set({ myName: name, chat: [], lobbyErr: '' });
-      connect(() => send({ t: 'join', room: c, name }));
+      connect({ t: 'join', room, name });
     },
-    [connect, send, set],
+    [connect, set],
   );
 
   const chat = useCallback(
@@ -508,11 +566,13 @@ export function useRoom() {
     actions: {
       createRoom,
       joinRoom,
+      clearLobbyError,
       startShare,
       stopShare,
       setQuality,
       toggleCamera,
       toggleMute,
+      enableVoice,
       toggleBarrage,
       toggleChat,
       closeChat,

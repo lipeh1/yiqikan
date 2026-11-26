@@ -18,29 +18,21 @@ const fmtTime = (ts: number) => {
 
 export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBarrage }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
-  // 关闭不瞬间消失：先挂 closing 类沿入场反向退场，动画结束后再卸载
-  const [mounted, setMounted] = useState(open);
-
-  useEffect(() => {
-    if (open) {
-      setMounted(true);
-      return;
-    }
-    const t = window.setTimeout(() => setMounted(false), 240);
-    return () => window.clearTimeout(t);
-  }, [open]);
 
   useEffect(() => {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
   }, [chat, open]);
 
-  // 抽屉是条件挂载的，聚焦要等 mounted 就位后再触发
+  // 触屏上先显示聊天记录，点输入框时再弹出软键盘。
   useEffect(() => {
-    if (open && mounted) inputRef.current?.focus();
-  }, [open, mounted]);
+    if (!open) return;
+    const target = window.matchMedia('(pointer: coarse)').matches ? closeRef : inputRef;
+    target.current?.focus();
+  }, [open]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,31 +42,29 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
     setDraft('');
   };
 
-  if (!mounted) return null;
+  if (!open) return null;
 
   return (
-    <aside id="chatDrawer" className={open ? 'glass' : 'glass closing'} aria-label="聊天">
+    <aside id="chatDrawer" className="glass" aria-label="聊天">
       <div className="chat-head">
-        <div>
-          <span className="chat-kicker">live notes</span>
-          <strong>聊天</strong>
-        </div>
+        <h2>聊天</h2>
         <div className="chat-head-actions">
           <button
             type="button"
             className={`mini barrage-toggle${barrageOn ? ' is-on' : ''}`}
             onClick={onToggleBarrage}
+            aria-pressed={barrageOn}
             title={barrageOn ? '弹幕已开：消息会飘在画面上' : '弹幕已关：消息只在聊天里'}
           >
             弹幕{barrageOn ? '开' : '关'}
           </button>
-          <button type="button" className="closeChat" onClick={onClose}>
+          <button ref={closeRef} type="button" className="closeChat" onClick={onClose}>
             收起
           </button>
         </div>
       </div>
 
-      <div id="chatLog" ref={logRef}>
+      <div id="chatLog" ref={logRef} role="log" aria-label="聊天记录">
         {chat.length === 0 ? (
           <p className="chat-empty">还没有留言，先说句“开场了”。</p>
         ) : (
@@ -92,6 +82,7 @@ export function ChatDrawer({ open, chat, onSend, onClose, barrageOn, onToggleBar
       <form id="chatForm" onSubmit={submit}>
         <input
           ref={inputRef}
+          aria-label="聊天消息"
           placeholder="说点什么…"
           maxLength={300}
           autoComplete="off"
