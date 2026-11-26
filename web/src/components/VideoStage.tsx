@@ -134,7 +134,7 @@ export const VideoStage = forwardRef<StageRef, Props>(function VideoStage(
       )}
 
       {/* 音视频连麦小窗：悬浮在影片画面上（远端右下、本地预览左下镜像） */}
-      {remoteCamStream && <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay />}
+      {remoteCamStream && <video ref={remoteCamRef} id="remoteCam" playsInline autoPlay muted />}
       {localCamStream && <video ref={localCamRef} id="localCam" playsInline autoPlay muted />}
     </div>
   );

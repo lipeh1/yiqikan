@@ -1,9 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RoomApi } from '../hooks/useRoom';
 import { RoomHeader } from './RoomHeader';
 import { VideoStage, type StageRef } from './VideoStage';
 import { Controls } from './Controls';
 import { ChatDrawer } from './ChatDrawer';
+
+function playMedia(element: HTMLMediaElement, setBlocked: (blocked: boolean) => void) {
+  const stream = element.srcObject;
+  if (!stream) return;
+  void element.play().then(
+    () => {
+      if (element.srcObject === stream) setBlocked(false);
+    },
+    (err: DOMException) => {
+      if (element.srcObject === stream && err.name === 'NotAllowedError') setBlocked(true);
+    },
+  );
+}
 
 export function Room({ room }: { room: RoomApi }) {
   const { state, events, actions } = room;
@@ -12,7 +25,8 @@ export function Room({ room }: { room: RoomApi }) {
   const stageRef = useRef<StageRef>(null);
 
   const [shareStream, setShareStream] = useState<MediaStream | null>(null);
-  const [showUnlock, setShowUnlock] = useState(false);
+  const [shareBlocked, setShareBlocked] = useState(false);
+  const [voiceBlocked, setVoiceBlocked] = useState(false);
   const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
   const [localCamStream, setLocalCamStream] = useState<MediaStream | null>(null);
   const [barrages, setBarrages] = useState<
@@ -30,10 +44,9 @@ export function Room({ room }: { room: RoomApi }) {
         const a = voiceAudioRef.current;
         if (a) {
           a.srcObject = s;
-          a.play().catch(() => setShowUnlock(true));
+          playMedia(a, setVoiceBlocked);
         }
-        // 音视频连麦：远端流带视频轨时显示摄像头小窗，纯语音时收起
-        setRemoteCamStream(s.getVideoTracks().length > 0 ? s : null);
+        setRemoteCamStream(s);
       }),
       events.on('local-video', (s) => setLocalCamStream(s)),
       events.on('barrage', ({ text, mine }) => {
@@ -53,28 +66,29 @@ export function Room({ room }: { room: RoomApi }) {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // 任意点击解锁手机自动播放限制
+  // 共享流与模式通知可能先后到达，等视频元素和流都就绪再绑定。
   useEffect(() => {
-    const arm = () => {
-      const v = shareVideoRef.current;
-      if (v && (v.currentSrc || v.srcObject)) {
-        v.play()
-          .then(() => setShowUnlock(false))
-          .catch(() => {});
-      }
-      void voiceAudioRef.current?.play().catch(() => {});
+    setShareBlocked(false);
+    const video = shareVideoRef.current;
+    if (!video || !shareStream) return;
+    video.srcObject = shareStream;
+    playMedia(video, setShareBlocked);
+    return () => {
+      video.srcObject = null;
     };
-    document.addEventListener('pointerdown', arm);
-    return () => document.removeEventListener('pointerdown', arm);
+  }, [shareStream, state.shareActive, state.isHost]);
+
+  const onUnlock = useCallback(() => {
+    if (shareVideoRef.current) playMedia(shareVideoRef.current, setShareBlocked);
+    if (voiceAudioRef.current) playMedia(voiceAudioRef.current, setVoiceBlocked);
   }, []);
 
-  const onUnlock = () => {
-    void shareVideoRef.current
-      ?.play()
-      .then(() => setShowUnlock(false))
-      .catch(() => {});
-    void voiceAudioRef.current?.play().catch(() => {});
-  };
+  useEffect(() => {
+    document.addEventListener('pointerdown', onUnlock);
+    return () => document.removeEventListener('pointerdown', onUnlock);
+  }, [onUnlock]);
+
+  const voicePeer = state.members.find((member) => member.host !== state.isHost);
 
   return (
     <div id="roomView" className="screen">
@@ -87,12 +101,12 @@ export function Room({ room }: { room: RoomApi }) {
           ref={stageRef}
           shareVideoRef={shareVideoRef}
           shareStream={shareStream}
-          showUnlock={showUnlock}
+          showUnlock={shareBlocked || voiceBlocked}
           onUnlock={onUnlock}
           isHost={state.isHost}
           shareActive={state.shareActive}
           barrages={barrages}
-          remoteCamStream={remoteCamStream}
+          remoteCamStream={voicePeer?.cam ? remoteCamStream : null}
           localCamStream={localCamStream}
         />
       </div>

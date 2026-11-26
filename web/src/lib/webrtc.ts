@@ -236,23 +236,35 @@ export class VoiceLink {
   private pendingIce: IceLike[] = [];
 
   constructor(
-    localStream: MediaStream | null,
+    private localStream: MediaStream | null,
     private send: SendFn,
     private peerCid: number | 'host',
     onRemoteStream: (s: MediaStream) => void,
   ) {
     this.pc = new RTCPeerConnection(RTC_CONFIG);
     if (localStream) {
-      for (const t of localStream.getTracks()) this.pc.addTrack(t, localStream);
+      for (const track of localStream.getAudioTracks()) this.pc.addTrack(track, localStream);
     }
-    this.pc.ontrack = (e) => onRemoteStream(e.streams[0]);
+    const remote = new MediaStream();
+    this.pc.ontrack = ({ track }) => {
+      remote.addTrack(track);
+      onRemoteStream(remote);
+    };
     this.pc.onicecandidate = (e) => {
       if (e.candidate) this.send({ t: 'v-ice', to: this.peerCid, candidate: e.candidate.toJSON() });
     };
   }
 
+  /** 摄像头借用已协商的视频通道，开关时保留同一条语音连接。 */
+  async setCameraTrack(track: MediaStreamTrack | null): Promise<void> {
+    const video = this.pc.getTransceivers().find((t) => t.receiver.track.kind === 'video');
+    await video?.sender.replaceTrack(track);
+  }
+
   /** 屋主侧发起 */
   async call(cid: number): Promise<void> {
+    const video = this.localStream?.getVideoTracks()[0];
+    this.pc.addTransceiver(video ?? 'video', { direction: 'sendrecv' });
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
     this.send({ t: 'v-offer', to: cid, sdp: this.pc.localDescription!.sdp });
@@ -275,6 +287,11 @@ export class VoiceLink {
   async answer(sdp: string): Promise<void> {
     try {
       await this.pc.setRemoteDescription({ type: 'offer', sdp });
+      const video = this.pc.getTransceivers().find((t) => t.receiver.track.kind === 'video');
+      if (video) {
+        video.direction = 'sendrecv';
+        await this.setCameraTrack(this.localStream?.getVideoTracks()[0] ?? null);
+      }
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
       this.send({ t: 'v-answer', sdp: this.pc.localDescription!.sdp });
