@@ -39,6 +39,55 @@ export type ClientMsg =
   | { t: 'rtc-answer'; sdp: string }
   | { t: 'rtc-ice'; to: number | 'host'; candidate: IceLike };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isCid(value: unknown): boolean {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function isIceCandidate(value: unknown): value is IceLike {
+  if (!isRecord(value)) return false;
+  return (
+    (value.candidate == null || typeof value.candidate === 'string') &&
+    (value.sdpMid == null || typeof value.sdpMid === 'string') &&
+    (value.usernameFragment == null || typeof value.usernameFragment === 'string') &&
+    (value.sdpMLineIndex == null ||
+      (typeof value.sdpMLineIndex === 'number' && Number.isInteger(value.sdpMLineIndex) && value.sdpMLineIndex >= 0))
+  );
+}
+
+export function isClientMsg(value: unknown): value is ClientMsg {
+  if (!isRecord(value)) return false;
+  switch (value.t) {
+    case 'create':
+      return typeof value.name === 'string';
+    case 'join':
+      return typeof value.name === 'string' && typeof value.room === 'string';
+    case 'share-start':
+    case 'share-stop':
+      return true;
+    case 'chat':
+      return typeof value.text === 'string';
+    case 'voice':
+    case 'cam':
+    case 'mute':
+      return typeof value.on === 'boolean';
+    case 'rtc-offer':
+    case 'v-offer':
+      return isCid(value.to) && typeof value.sdp === 'string';
+    case 'rtc-answer':
+    case 'v-answer':
+      return typeof value.sdp === 'string';
+    case 'rtc-ice':
+    case 'v-ice':
+      return (value.to === 'host' || isCid(value.to)) && isIceCandidate(value.candidate);
+    default:
+      return false;
+  }
+}
+
 export type ServerMsg =
   | { t: 'created'; room: string; you: number; hostCid: number; members: Member[] }
   | { t: 'joined'; room: string; you: number; hostCid: number; members: Member[]; mode: Mode }

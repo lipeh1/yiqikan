@@ -1,4 +1,4 @@
-import type { ClientMsg, Member, ServerMsg } from '../../shared/protocol';
+import { isClientMsg, type Member, type ServerMsg } from '../../shared/protocol';
 import type { WebSocket as WsSocket } from 'ws';
 
 export interface Conn {
@@ -107,12 +107,13 @@ export function handleJoin(conn: Conn, rooms: Map<string, Room>, code: string, n
 }
 
 export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): void {
-  let m: ClientMsg;
+  let m: unknown;
   try {
     m = JSON.parse(String(raw));
   } catch {
     return;
   }
+  if (!isClientMsg(m)) return;
   if (m.t === 'create') return handleCreate(conn, rooms, m.name);
   if (m.t === 'join') return handleJoin(conn, rooms, m.room, m.name);
 
@@ -149,7 +150,6 @@ export function handleMsg(conn: Conn, rooms: Map<string, Room>, raw: unknown): v
     }
     case 'cam': {
       conn.cam = !!m.on;
-      if (!m.on) conn.muted = false; // 关摄像头时复位静音
       broadcast(room, { t: 'cam', cid: conn.cid, on: conn.cam });
       return;
     }

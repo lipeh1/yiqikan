@@ -2,7 +2,14 @@
 import assert from 'node:assert';
 import WebSocket from 'ws';
 import { start } from '../server/src/index';
-import type { ClientMsg, ServerMsg } from '../shared/protocol';
+import { isClientMsg, type ClientMsg, type ServerMsg } from '../shared/protocol';
+
+assert.equal(isClientMsg(null), false);
+assert.equal(isClientMsg({ t: 'chat', text: 42 }), false);
+assert.equal(isClientMsg({ t: 'mute', on: 'false' }), false);
+assert.equal(isClientMsg({ t: 'rtc-ice', to: 'host', candidate: { sdpMid: 2 } }), false);
+assert.equal(isClientMsg({ t: 'rtc-ice', to: 'host', candidate: { candidate: '', sdpMid: null } }), true);
+console.log('OK 客户端消息类型校验');
 
 const PORT = 3211;
 start(PORT);
@@ -126,6 +133,8 @@ host.waitFor('rtc-ice', (m) => {
 guest.waitFor('rtc-ice', (m) => {
   assert.equal(m.candidate.candidate, 'ice-2');
   console.log('OK 屋主 ICE 定向送达观众');
+  // 字段类型错误的消息应跳过，同一连接后续的正常聊天仍应送达。
+  guest.ws.send(JSON.stringify({ t: 'chat', text: 42 }));
   guest.send({ t: 'chat', text: '看到这里笑了' });
 });
 
@@ -251,9 +260,29 @@ guest.waitFor(
     assert.equal(m.cid, hostCid);
     assert.equal(m.on, true);
     console.log('OK 屋主静音状态到达观众');
-    guest.send({ t: 'mute', on: false });
+    guest.send({ t: 'cam', on: false });
   },
   (m) => m.t === 'mute' && m.cid === hostCid,
+);
+
+host.waitFor(
+  'cam',
+  () => {
+    // 后加入的成员从房间快照读取摄像头、开麦与静音的独立状态。
+    const observer = new Client(new WebSocket(`ws://localhost:${PORT}/ws`), 'observer');
+    observer.ws.on('open', () => observer.send({ t: 'join', room, name: '访客' }));
+    observer.waitFor('joined', ({ members }) => {
+      const member = members.find(({ cid }) => cid === guestCid);
+      assert.ok(member);
+      assert.equal(member.cam, false);
+      assert.equal(member.voice, true);
+      assert.equal(member.muted, true);
+      console.log('OK 关摄像头后保留开麦和静音状态');
+      observer.ws.close();
+      guest.send({ t: 'mute', on: false });
+    });
+  },
+  (m) => m.t === 'cam' && m.cid === guestCid && !m.on,
 );
 
 host.waitFor(
